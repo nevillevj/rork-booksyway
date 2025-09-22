@@ -355,6 +355,29 @@ export default function HomeScreen() {
   console.log('HomeScreen: FEATURED_HOTELS length:', FEATURED_HOTELS.length);
   console.log('HomeScreen: First hotel:', FEATURED_HOTELS[0]);
 
+  const handleSearch = () => {
+    if (!destination.trim()) {
+      alert('Please enter a destination');
+      return;
+    }
+    
+    if (!dateSelection.checkIn || !dateSelection.checkOut) {
+      alert('Please select check-in and check-out dates');
+      return;
+    }
+    
+    const params = new URLSearchParams({
+      location: destination.trim(),
+      checkIn: dateSelection.checkIn.toISOString(),
+      checkOut: dateSelection.checkOut.toISOString(),
+      adults: '2',
+      children: '0',
+      rooms: '1',
+    });
+    
+    router.push(`/results?${params.toString()}`);
+  };
+
   const handleHotelPress = (hotel: FeaturedHotel) => {
     const checkIn = new Date();
     checkIn.setDate(checkIn.getDate() + 1);
@@ -485,7 +508,7 @@ export default function HomeScreen() {
             
             <TouchableOpacity 
               style={styles.searchButton}
-              onPress={() => router.push('/(tabs)/search')}
+              onPress={handleSearch}
             >
               <Text style={styles.searchButtonText}>Search</Text>
             </TouchableOpacity>

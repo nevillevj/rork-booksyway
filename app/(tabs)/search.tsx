@@ -23,6 +23,56 @@ import {
   Minus,
   X,
 } from 'lucide-react-native';
+import { trpc } from '@/lib/trpc';
+
+function TestApiSection() {
+  const testApiQuery = trpc.example.testLiteApi.useQuery(undefined, {
+    enabled: false,
+  });
+
+  const handleTestApi = () => {
+    console.log('Testing LiteAPI connection from search screen...');
+    testApiQuery.refetch();
+  };
+
+  return (
+    <View style={styles.testApiSection}>
+      <TouchableOpacity 
+        style={styles.testApiButton}
+        onPress={handleTestApi}
+        disabled={testApiQuery.isLoading}
+      >
+        <Text style={styles.testApiButtonText}>
+          {testApiQuery.isLoading ? 'Testing API...' : 'Test LiteAPI Connection'}
+        </Text>
+      </TouchableOpacity>
+      
+      {testApiQuery.data && (
+        <View style={styles.testApiResult}>
+          <Text style={[
+            styles.testApiResultText,
+            { color: testApiQuery.data.success ? '#28a745' : '#dc3545' }
+          ]}>
+            {testApiQuery.data.message}
+          </Text>
+          {testApiQuery.data.success && testApiQuery.data.data && (
+            <Text style={styles.testApiDetails}>
+              Status: {testApiQuery.data.data.status} | Hotels: {testApiQuery.data.data.hotelsFound || 0}
+            </Text>
+          )}
+        </View>
+      )}
+      
+      {testApiQuery.error && (
+        <View style={styles.testApiResult}>
+          <Text style={[styles.testApiResultText, { color: '#dc3545' }]}>
+            Error: {testApiQuery.error.message}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 interface SearchParams {
   location: string;
@@ -299,6 +349,12 @@ export default function SearchScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
+        
+        {/* API Test Section */}
+        <View style={styles.popularSection}>
+          <Text style={styles.sectionTitle}>API Connection Test</Text>
+          <TestApiSection />
         </View>
         
         {/* Quick Test - Hotel Details */}
@@ -894,5 +950,48 @@ const styles = StyleSheet.create({
   testHotelSubtitle: {
     fontSize: 14,
     color: '#007AFF',
+  },
+  testApiSection: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  testApiButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  testApiButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  testApiResult: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  testApiResultText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  testApiDetails: {
+    fontSize: 12,
+    color: '#666',
   },
 });

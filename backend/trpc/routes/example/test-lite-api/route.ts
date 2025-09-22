@@ -16,20 +16,21 @@ export const testLiteApiProcedure = publicProcedure
       console.log('=== LiteAPI Connection Test ===');
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
-      // Test with the correct LiteAPI endpoint - try without version
-      const searchUrl = 'https://api.liteapi.travel/data/hotels';
+      // Test with the correct LiteAPI endpoint - use v3.0 version
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
       const queryParams = new URLSearchParams({
-        cityCode: 'NYC',
-        date_from: '2024-12-01',
-        date_to: '2024-12-03',
+        countryCode: 'US',
+        cityName: 'New York',
+        checkin: '2024-12-01',
+        checkout: '2024-12-03',
         currency: 'USD',
-        nationality: 'US',
-        limit: '5'
+        guestNationality: 'US',
+        adults: '2',
+        children: '0',
+        rooms: '1'
       });
       
-      // Add occupancies in the correct format for LiteAPI
-      queryParams.append('occupancies[0][adults]', '2');
-      queryParams.append('occupancies[0][children]', '0');
+      // Remove occupancies for now - use simple adults/children params
       
       const fullUrl = `${searchUrl}?${queryParams.toString()}`;
       console.log('Test request URL:', fullUrl);

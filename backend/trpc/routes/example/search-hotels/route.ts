@@ -13,6 +13,34 @@ const searchHotelsSchema = z.object({
   limit: z.number().min(1).max(100).default(20)
 });
 
+// Helper function to convert city codes to city names
+const getCityNameFromCode = (cityCode: string): string => {
+  const codeToNameMapping: Record<string, string> = {
+    'NYC': 'New York',
+    'PAR': 'Paris',
+    'LON': 'London',
+    'TYO': 'Tokyo',
+    'DXB': 'Dubai',
+    'BCN': 'Barcelona',
+    'ROM': 'Rome',
+    'AMS': 'Amsterdam',
+    'SYD': 'Sydney',
+    'BKK': 'Bangkok',
+    'LAX': 'Los Angeles',
+    'SFO': 'San Francisco',
+    'MIA': 'Miami',
+    'CHI': 'Chicago',
+    'BOS': 'Boston',
+    'LAS': 'Las Vegas',
+    'BER': 'Berlin',
+    'MAD': 'Madrid',
+    'VIE': 'Vienna',
+    'PRG': 'Prague'
+  };
+  
+  return codeToNameMapping[cityCode] || cityCode;
+};
+
 export const searchHotelsProcedure = publicProcedure
   .input(searchHotelsSchema)
   .query(async ({ input }) => {
@@ -44,27 +72,26 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - data/hotels endpoint
-      const searchUrl = 'https://api.liteapi.travel/data/hotels';
+      // Use the correct LiteAPI endpoint - v3.0/data/hotels endpoint
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
       
       console.log('Request URL:', searchUrl);
 
       // Build query parameters for GET request according to LiteAPI docs
+      // Try different parameter names based on documentation
       const queryParams = new URLSearchParams({
-        cityCode: input.cityCode,
-        date_from: input.checkin,
-        date_to: input.checkout,
+        countryCode: 'US', // Default to US for now
+        cityName: getCityNameFromCode(input.cityCode),
+        checkin: input.checkin,
+        checkout: input.checkout,
         currency: input.currency,
-        nationality: input.guestNationality,
-        limit: input.limit.toString()
+        guestNationality: input.guestNationality,
+        adults: input.adults.toString(),
+        children: input.children.toString(),
+        rooms: input.rooms.toString()
       });
       
-      // Add occupancies in the correct format for LiteAPI
-      // Each occupancy should be added as separate parameters
-      occupancies.forEach((occupancy, index) => {
-        queryParams.append(`occupancies[${index}][adults]`, occupancy.adults.toString());
-        queryParams.append(`occupancies[${index}][children]`, occupancy.children.toString());
-      });
+      // Skip occupancies array for now - use simple adults/children params
       
       const fullUrl = `${searchUrl}?${queryParams.toString()}`;
       console.log('Full request URL:', fullUrl);
@@ -248,7 +275,7 @@ export const searchHotelsProcedure = publicProcedure
       // Transform hotels to our format
       const transformedHotels = hotels.map((hotel: any, index: number) => {
         if (!hotel || typeof hotel !== 'object') {
-          console.warn(`Invalid hotel data at index ${index}:`, hotel);
+          console.warn(`Invalid hotel data at index ${index}:`, String(hotel).substring(0, 100));
           return null;
         }
         

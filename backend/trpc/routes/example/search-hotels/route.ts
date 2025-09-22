@@ -28,28 +28,76 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // Simplified approach: Use the hotels endpoint with city code
-      // Based on the working test API, let's use a simpler approach
-      const searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?cityCode=${input.cityCode}&limit=${input.limit}`;
-      
-      console.log('Searching hotels with URL:', searchUrl);
-      console.log('Using API key:', apiKey.substring(0, 10) + '...');
-      console.log('Search parameters:', {
+      // Try multiple endpoints to find the correct one
+      // First try: hotels search with POST
+      let searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      let requestMethod = 'POST';
+      let requestBody = {
         cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
         adults: input.adults,
         children: input.children,
-        rooms: input.rooms
-      });
+        rooms: input.rooms,
+        currency: input.currency,
+        guestNationality: input.guestNationality,
+        limit: input.limit
+      };
+      
+      console.log('Trying search endpoint:', searchUrl);
+      console.log('Using API key:', apiKey.substring(0, 10) + '...');
+      console.log('Search parameters:', requestBody);
 
-      const response = await fetch(searchUrl, {
-        method: 'GET',
+      let response = await fetch(searchUrl, {
+        method: requestMethod,
         headers: {
           'X-API-Key': apiKey,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(requestBody)
       });
+
+      // If first attempt fails, try alternative endpoints
+      if (!response.ok) {
+        console.log(`First attempt failed with ${response.status}, trying alternative endpoints...`);
+        
+        // Try: hotels/rates endpoint
+        searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
+        response = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'X-API-Key': apiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+          console.log(`Second attempt failed with ${response.status}, trying GET with query params...`);
+          
+          // Try: GET request with query parameters
+          const queryParams = new URLSearchParams({
+            cityCode: input.cityCode,
+            checkin: input.checkin,
+            checkout: input.checkout,
+            adults: input.adults.toString(),
+            children: input.children.toString(),
+            rooms: input.rooms.toString(),
+            currency: input.currency,
+            guestNationality: input.guestNationality,
+            limit: input.limit.toString()
+          });
+          
+          searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?${queryParams.toString()}`;
+          response = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+              'X-API-Key': apiKey,
+              'Content-Type': 'application/json'
+            }
+          });
+        }
+      }
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
@@ -70,9 +118,42 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // Simple JSON parsing like the working test API
-      const data = await response.json();
-      console.log('LiteAPI response received:', JSON.stringify(data, null, 2));
+      // Get response text first to debug parsing issues
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText.substring(0, 500) + (responseText.length > 500 ? '...' : ''));
+      
+      if (!responseText || responseText.trim() === '') {
+        console.error('Empty response received from API');
+        return {
+          success: false,
+          message: 'Empty response from hotel search API',
+          data: null,
+          debug: {
+            url: searchUrl,
+            responseLength: responseText.length,
+            responsePreview: responseText.substring(0, 100)
+          }
+        };
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('LiteAPI response parsed successfully:', JSON.stringify(data, null, 2));
+      } catch (parseError) {
+        console.error('JSON parsing error:', parseError);
+        console.error('Response text that failed to parse:', responseText);
+        return {
+          success: false,
+          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`,
+          data: null,
+          debug: {
+            url: searchUrl,
+            responseText: responseText.substring(0, 1000),
+            parseError: parseError instanceof Error ? parseError.message : String(parseError)
+          }
+        };
+      }
       
       // Check for API errors
       if (data.error || data.errors) {

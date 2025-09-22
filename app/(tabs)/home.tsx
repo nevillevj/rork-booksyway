@@ -8,10 +8,11 @@ import {
   Image,
   FlatList,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { MapPin, Heart, Search, Calendar, Users, Bell, Car, Plane, MapPin as Attractions } from 'lucide-react-native';
+import { MapPin, Heart, Search, Calendar, Users, Bell, Car, Plane, MapPin as Attractions, X } from 'lucide-react-native';
 import { MOCK_ACCOMMODATIONS } from '@/constants/mockData';
 
 interface FeaturedHotel {
@@ -38,11 +39,318 @@ const FEATURED_HOTELS: FeaturedHotel[] = MOCK_ACCOMMODATIONS.map(hotel => ({
   type: hotel.type,
 }));
 
+
+
+interface DateSelection {
+  checkIn: Date | null;
+  checkOut: Date | null;
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [destination, setDestination] = useState('');
-  const [checkInDate] = useState('Mon 22 Sept - Tue 23 Sept');
+  const [dateSelection, setDateSelection] = useState<DateSelection>({
+    checkIn: null,
+    checkOut: null,
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [guests] = useState('1 room · 2 adults · 0 children');
+  const [selectedTab, setSelectedTab] = useState<'calendar' | 'flexible'>('calendar');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
+
+  const formatDateRange = () => {
+    if (!dateSelection.checkIn || !dateSelection.checkOut) {
+      return 'Select dates';
+    }
+    const checkIn = dateSelection.checkIn;
+    const checkOut = dateSelection.checkOut;
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    return `${checkIn.toLocaleDateString('en-US', options)} - ${checkOut.toLocaleDateString('en-US', options)}`;
+  };
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const days = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+    
+    return days;
+  };
+
+  const isDateSelected = (date: Date) => {
+    if (!dateSelection.checkIn || !dateSelection.checkOut) return false;
+    return date >= dateSelection.checkIn && date <= dateSelection.checkOut;
+  };
+
+  const isDateInRange = (date: Date) => {
+    if (!dateSelection.checkIn || !dateSelection.checkOut) return false;
+    return date > dateSelection.checkIn && date < dateSelection.checkOut;
+  };
+
+  const handleDatePress = (date: Date) => {
+    if (!dateSelection.checkIn || (dateSelection.checkIn && dateSelection.checkOut)) {
+      // First selection or reset
+      setDateSelection({ checkIn: date, checkOut: null });
+    } else if (date > dateSelection.checkIn) {
+      // Second selection
+      setDateSelection({ ...dateSelection, checkOut: date });
+    } else {
+      // Selected date is before check-in, reset
+      setDateSelection({ checkIn: date, checkOut: null });
+    }
+  };
+
+  const handleDurationSelect = (days: number) => {
+    if (typeof days !== 'number' || days <= 0) return;
+    setSelectedDuration(days);
+    if (dateSelection.checkIn) {
+      const checkOut = new Date(dateSelection.checkIn);
+      checkOut.setDate(checkOut.getDate() + days);
+      setDateSelection({ ...dateSelection, checkOut });
+    }
+  };
+
+  const getMonthName = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+
+
+  const getNightCount = () => {
+    if (!dateSelection.checkIn || !dateSelection.checkOut) return 0;
+    const diffTime = dateSelection.checkOut.getTime() - dateSelection.checkIn.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const renderCalendar = () => {
+    const days = getDaysInMonth(currentMonth);
+    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    return (
+      <View style={styles.calendarContainer}>
+        <Text style={styles.monthTitle}>{getMonthName(currentMonth)}</Text>
+        
+        <View style={styles.weekDaysRow}>
+          {weekDays.map((day) => (
+            <Text key={day} style={styles.weekDayText}>{day}</Text>
+          ))}
+        </View>
+        
+        <View style={styles.daysGrid}>
+          {days.map((date, index) => {
+            if (!date) {
+              return <View key={`empty-${index}`} style={styles.emptyDay} />;
+            }
+            
+            const isSelected = isDateSelected(date);
+            const isInRange = isDateInRange(date);
+            const isCheckIn = dateSelection.checkIn && date.getTime() === dateSelection.checkIn.getTime();
+            const isCheckOut = dateSelection.checkOut && date.getTime() === dateSelection.checkOut.getTime();
+            const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
+            
+            return (
+              <TouchableOpacity
+                key={`day-${date.getTime()}`}
+                style={[
+                  styles.dayButton,
+                  isSelected && styles.selectedDay,
+                  isInRange && styles.inRangeDay,
+                  isCheckIn && styles.checkInDay,
+                  isCheckOut && styles.checkOutDay,
+                  isPast && styles.pastDay,
+                ]}
+                onPress={() => !isPast && handleDatePress(date)}
+                disabled={isPast}
+              >
+                <Text style={[
+                  styles.dayText,
+                  isSelected && styles.selectedDayText,
+                  isPast && styles.pastDayText,
+                ]}>
+                  {date.getDate()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderDatePicker = () => {
+    return (
+      <Modal
+        visible={showDatePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.datePickerContainer}>
+          <View style={styles.datePickerHeader}>
+            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+              <X size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.datePickerTitle}>Select dates</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                selectedTab === 'calendar' && styles.activeTab,
+              ]}
+              onPress={() => setSelectedTab('calendar')}
+            >
+              <Text style={[
+                styles.tabText,
+                selectedTab === 'calendar' && styles.activeTabText,
+              ]}>Calendar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                selectedTab === 'flexible' && styles.activeTab,
+              ]}
+              onPress={() => setSelectedTab('flexible')}
+            >
+              <Text style={[
+                styles.tabText,
+                selectedTab === 'flexible' && styles.activeTabText,
+              ]}>I&apos;m flexible</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.datePickerContent}>
+            {selectedTab === 'calendar' ? (
+              <View>
+                {renderCalendar()}
+                
+                {/* Next month */}
+                <View style={styles.nextMonthContainer}>
+                  {(() => {
+                    const nextMonth = new Date(currentMonth);
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    const nextMonthDays = getDaysInMonth(nextMonth);
+                    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    
+                    return (
+                      <View style={styles.calendarContainer}>
+                        <Text style={styles.monthTitle}>{getMonthName(nextMonth)}</Text>
+                        
+                        <View style={styles.weekDaysRow}>
+                          {weekDays.map((day) => (
+                            <Text key={day} style={styles.weekDayText}>{day}</Text>
+                          ))}
+                        </View>
+                        
+                        <View style={styles.daysGrid}>
+                          {nextMonthDays.map((date, index) => {
+                            if (!date) {
+                              return <View key={`next-empty-${index}`} style={styles.emptyDay} />;
+                            }
+                            
+                            const isSelected = isDateSelected(date);
+                            const isInRange = isDateInRange(date);
+                            const isCheckIn = dateSelection.checkIn && date.getTime() === dateSelection.checkIn.getTime();
+                            const isCheckOut = dateSelection.checkOut && date.getTime() === dateSelection.checkOut.getTime();
+                            
+                            return (
+                              <TouchableOpacity
+                                key={`next-day-${date.getTime()}`}
+                                style={[
+                                  styles.dayButton,
+                                  isSelected && styles.selectedDay,
+                                  isInRange && styles.inRangeDay,
+                                  isCheckIn && styles.checkInDay,
+                                  isCheckOut && styles.checkOutDay,
+                                ]}
+                                onPress={() => handleDatePress(date)}
+                              >
+                                <Text style={[
+                                  styles.dayText,
+                                  isSelected && styles.selectedDayText,
+                                ]}>
+                                  {date.getDate()}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })()
+                }
+                </View>
+              </View>
+            ) : (
+              <View style={styles.flexibleContainer}>
+                <Text style={styles.flexibleTitle}>How long would you like to stay?</Text>
+                <View style={styles.durationButtons}>
+                  {[1, 2, 3, 7].map((dayCount) => {
+                    if (typeof dayCount !== 'number' || dayCount <= 0) return null;
+                    return (
+                      <TouchableOpacity
+                        key={dayCount}
+                        style={[
+                          styles.durationButton,
+                          selectedDuration === dayCount && styles.selectedDurationButton,
+                        ]}
+                        onPress={() => handleDurationSelect(dayCount)}
+                      >
+                        <Text style={[
+                          styles.durationButtonText,
+                          selectedDuration === dayCount && styles.selectedDurationButtonText,
+                        ]}>
+                          {dayCount === 1 ? '± 1 day' : `± ${dayCount} days`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+          
+          <View style={styles.datePickerFooter}>
+            {dateSelection.checkIn && dateSelection.checkOut && (
+              <Text style={styles.selectedDatesText}>
+                {formatDateRange()} ({getNightCount()} nights)
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.selectDatesButton,
+                (!dateSelection.checkIn || !dateSelection.checkOut) && styles.disabledButton,
+              ]}
+              onPress={() => {
+                if (dateSelection.checkIn && dateSelection.checkOut) {
+                  setShowDatePicker(false);
+                }
+              }}
+              disabled={!dateSelection.checkIn || !dateSelection.checkOut}
+            >
+              <Text style={styles.selectDatesButtonText}>Select dates</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
   
   console.log('HomeScreen: FEATURED_HOTELS length:', FEATURED_HOTELS.length);
   console.log('HomeScreen: First hotel:', FEATURED_HOTELS[0]);
@@ -162,9 +470,12 @@ export default function HomeScreen() {
               />
             </View>
             
-            <TouchableOpacity style={styles.dateInputContainer}>
+            <TouchableOpacity 
+              style={styles.dateInputContainer}
+              onPress={() => setShowDatePicker(true)}
+            >
               <Calendar color="#666" size={20} />
-              <Text style={styles.dateInputText}>{checkInDate}</Text>
+              <Text style={styles.dateInputText}>{formatDateRange()}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.guestInputContainer}>
@@ -206,6 +517,7 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
+      {renderDatePicker()}
     </View>
   );
 }
@@ -216,7 +528,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   heroSection: {
-    backgroundColor: '#FF6F3C',
+    backgroundColor: '#0F4C81',
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
@@ -474,5 +786,180 @@ const styles = StyleSheet.create({
   noDataText: {
     fontSize: 16,
     color: '#666',
+  },
+  datePickerContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: '#0066CC',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#0066CC',
+    fontWeight: '600',
+  },
+  datePickerContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  calendarContainer: {
+    marginTop: 24,
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+  weekDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  weekDayText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    width: 40,
+    textAlign: 'center',
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+  },
+  dayButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+  },
+  emptyDay: {
+    width: 40,
+    height: 40,
+  },
+  selectedDay: {
+    backgroundColor: '#0066CC',
+    borderRadius: 20,
+  },
+  inRangeDay: {
+    backgroundColor: '#E6F3FF',
+  },
+  checkInDay: {
+    backgroundColor: '#0066CC',
+    borderRadius: 20,
+  },
+  checkOutDay: {
+    backgroundColor: '#0066CC',
+    borderRadius: 20,
+  },
+  pastDay: {
+    opacity: 0.3,
+  },
+  dayText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedDayText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  pastDayText: {
+    color: '#999',
+  },
+  flexibleContainer: {
+    paddingVertical: 24,
+  },
+  flexibleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+  durationButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  durationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  selectedDurationButton: {
+    backgroundColor: '#0066CC',
+    borderColor: '#0066CC',
+  },
+  durationButtonText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedDurationButtonText: {
+    color: 'white',
+  },
+  datePickerFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  selectedDatesText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  selectDatesButton: {
+    backgroundColor: '#0066CC',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#E5E5E5',
+  },
+  selectDatesButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  headerSpacer: {
+    width: 24,
+  },
+  nextMonthContainer: {
+    marginTop: 32,
   },
 });

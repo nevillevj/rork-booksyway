@@ -461,8 +461,10 @@ export default function HomeScreen() {
     );
   };
   
-  console.log('HomeScreen: FEATURED_HOTELS length:', FEATURED_HOTELS.length);
-  console.log('HomeScreen: First hotel:', FEATURED_HOTELS[0]);
+  console.log('=== Home Screen Render ===');
+  console.log('FEATURED_HOTELS length:', FEATURED_HOTELS.length);
+  console.log('Current guest config:', guestConfig);
+  console.log('Current date selection:', dateSelection);
 
   const handleSearch = async () => {
     if (!destination.trim()) {
@@ -479,17 +481,23 @@ export default function HomeScreen() {
     // In production, you'd want to implement proper city search with the LiteAPI cities endpoint
     const getCityCode = (destination: string): string => {
       const cityMappings: Record<string, string> = {
-        // Major cities with their LiteAPI codes
+        // Major cities with their LiteAPI codes (using IATA codes as fallback)
         'new york': 'NYC',
         'nyc': 'NYC', 
         'new york city': 'NYC',
+        'manhattan': 'NYC',
         'los angeles': 'LAX',
+        'la': 'LAX',
         'chicago': 'CHI',
         'miami': 'MIA',
         'las vegas': 'LAS',
+        'vegas': 'LAS',
         'san francisco': 'SFO',
+        'sf': 'SFO',
         'boston': 'BOS',
         'washington': 'WAS',
+        'washington dc': 'WAS',
+        'dc': 'WAS',
         'seattle': 'SEA',
         'london': 'LON',
         'paris': 'PAR',
@@ -508,7 +516,21 @@ export default function HomeScreen() {
         'melbourne': 'MEL',
         'toronto': 'YYZ',
         'vancouver': 'YVR',
-        'montreal': 'YUL'
+        'montreal': 'YUL',
+        // Additional popular destinations
+        'orlando': 'MCO',
+        'atlanta': 'ATL',
+        'phoenix': 'PHX',
+        'denver': 'DEN',
+        'dallas': 'DFW',
+        'houston': 'IAH',
+        'philadelphia': 'PHL',
+        'detroit': 'DTW',
+        'minneapolis': 'MSP',
+        'tampa': 'TPA',
+        'san diego': 'SAN',
+        'portland': 'PDX',
+        'salt lake city': 'SLC'
       };
       
       const normalizedDestination = destination.toLowerCase().trim();
@@ -517,30 +539,28 @@ export default function HomeScreen() {
     
     const cityCode = getCityCode(destination);
     
-    console.log('Search initiated with:', {
+    console.log('=== Home Screen Search Initiated ===');
+    console.log('Search parameters:', {
       destination: destination.trim(),
       cityCode: cityCode,
       checkIn: dateSelection.checkIn.toISOString().split('T')[0],
       checkOut: dateSelection.checkOut.toISOString().split('T')[0],
       adults: guestConfig.adults,
       children: guestConfig.children,
-      rooms: guestConfig.rooms
+      rooms: guestConfig.rooms,
+      currency: 'USD',
+      guestNationality: 'US'
     });
     
     // Format dates properly for API (YYYY-MM-DD)
     const checkInFormatted = dateSelection.checkIn.toISOString().split('T')[0];
     const checkOutFormatted = dateSelection.checkOut.toISOString().split('T')[0];
     
-    console.log('Formatted search parameters:', {
-      destination: destination.trim(),
-      cityCode: cityCode,
-      checkIn: checkInFormatted,
-      checkOut: checkOutFormatted,
-      adults: guestConfig.adults,
-      children: guestConfig.children,
-      rooms: guestConfig.rooms,
-      currency: 'USD',
-      guestNationality: 'US'
+    console.log('Formatted dates for API:', {
+      checkInFormatted: checkInFormatted,
+      checkOutFormatted: checkOutFormatted,
+      originalCheckIn: dateSelection.checkIn.toISOString(),
+      originalCheckOut: dateSelection.checkOut.toISOString()
     });
     
     const params = new URLSearchParams({
@@ -553,6 +573,9 @@ export default function HomeScreen() {
       rooms: guestConfig.rooms.toString(),
     });
     
+    console.log('Navigation URL params:', params.toString());
+    
+    console.log('Navigating to results page with URL:', `/results?${params.toString()}`);
     router.push(`/results?${params.toString()}`);
   };
 
@@ -734,7 +757,7 @@ export default function HomeScreen() {
 
 function TestApiButton() {
   const testApiQuery = trpc.example.testLiteApi.useQuery(undefined, {
-    enabled: false, // Don't auto-run
+    enabled: false,
   });
 
   const handleTestApi = () => {
@@ -764,7 +787,7 @@ function TestApiButton() {
           </Text>
           {testApiQuery.data.success && testApiQuery.data.data && (
             <Text style={styles.testDetailsText}>
-              Status: {testApiQuery.data.data.status} | Cities: {testApiQuery.data.data.cities?.length || 0}
+              Status: {testApiQuery.data.data.status} | Hotels Found: {testApiQuery.data.data.hotelsFound || 0}
             </Text>
           )}
         </View>

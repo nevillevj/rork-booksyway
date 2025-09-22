@@ -356,7 +356,7 @@ export default function HomeScreen() {
   console.log('HomeScreen: FEATURED_HOTELS length:', FEATURED_HOTELS.length);
   console.log('HomeScreen: First hotel:', FEATURED_HOTELS[0]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!destination.trim()) {
       alert('Please enter a destination');
       return;
@@ -367,8 +367,50 @@ export default function HomeScreen() {
       return;
     }
     
+    // For now, we'll use a simple mapping for common cities
+    // In a real app, you'd want to implement city search with autocomplete
+    const getCityCode = (destination: string): string => {
+      const cityMappings: Record<string, string> = {
+        'new york': 'NYC',
+        'nyc': 'NYC',
+        'new york city': 'NYC',
+        'london': 'LON',
+        'paris': 'PAR',
+        'tokyo': 'TYO',
+        'dubai': 'DXB',
+        'singapore': 'SIN',
+        'hong kong': 'HKG',
+        'los angeles': 'LAX',
+        'chicago': 'CHI',
+        'miami': 'MIA',
+        'las vegas': 'LAS',
+        'san francisco': 'SFO',
+        'boston': 'BOS',
+        'washington': 'WAS',
+        'seattle': 'SEA',
+        'barcelona': 'BCN',
+        'rome': 'ROM',
+        'amsterdam': 'AMS',
+        'berlin': 'BER',
+        'madrid': 'MAD',
+        'istanbul': 'IST',
+        'bangkok': 'BKK',
+        'sydney': 'SYD',
+        'melbourne': 'MEL',
+        'toronto': 'YYZ',
+        'vancouver': 'YVR',
+        'montreal': 'YUL'
+      };
+      
+      const normalizedDestination = destination.toLowerCase().trim();
+      return cityMappings[normalizedDestination] || 'NYC'; // Default to NYC
+    };
+    
+    const cityCode = getCityCode(destination);
+    
     const params = new URLSearchParams({
       location: destination.trim(),
+      cityCode: cityCode,
       checkIn: dateSelection.checkIn.toISOString(),
       checkOut: dateSelection.checkOut.toISOString(),
       adults: '2',

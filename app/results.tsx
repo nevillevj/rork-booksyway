@@ -8,6 +8,7 @@ import {
   Image,
   FlatList,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -22,6 +23,7 @@ import {
   Coffee,
   X,
 } from 'lucide-react-native';
+import { trpc } from '@/lib/trpc';
 
 interface Accommodation {
   id: string;
@@ -47,96 +49,7 @@ interface FilterOptions {
   propertyType: string[];
 }
 
-const MOCK_ACCOMMODATIONS: Accommodation[] = [
-  {
-    id: '1',
-    name: 'Grand Hotel Central',
-    location: 'City Center, Paris',
-    rating: 4.8,
-    reviewCount: 1247,
-    price: 189,
-    originalPrice: 220,
-    imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'parking', 'breakfast', 'pool'],
-    type: 'hotel',
-    distance: '0.5 km from center',
-    isFavorite: false,
-    isPopular: true,
-    hasFreeCancellation: true,
-  },
-  {
-    id: '2',
-    name: 'Cozy Apartment Montmartre',
-    location: 'Montmartre, Paris',
-    rating: 4.6,
-    reviewCount: 892,
-    price: 95,
-    imageUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'kitchen', 'washer'],
-    type: 'apartment',
-    distance: '2.1 km from center',
-    isFavorite: true,
-    hasFreeCancellation: false,
-  },
-  {
-    id: '3',
-    name: 'Luxury Seine View Suite',
-    location: 'Latin Quarter, Paris',
-    rating: 4.9,
-    reviewCount: 456,
-    price: 285,
-    imageUrl: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'room-service', 'spa', 'concierge'],
-    type: 'hotel',
-    distance: '0.8 km from center',
-    isFavorite: false,
-    isPopular: true,
-    hasFreeCancellation: true,
-  },
-  {
-    id: '4',
-    name: 'Budget Hostel Republique',
-    location: 'République, Paris',
-    rating: 4.2,
-    reviewCount: 2341,
-    price: 35,
-    imageUrl: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'shared-kitchen', 'lockers'],
-    type: 'hostel',
-    distance: '1.5 km from center',
-    isFavorite: false,
-    hasFreeCancellation: true,
-  },
-  {
-    id: '5',
-    name: 'Modern Loft Le Marais',
-    location: 'Le Marais, Paris',
-    rating: 4.7,
-    reviewCount: 623,
-    price: 145,
-    imageUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'kitchen', 'balcony', 'washer'],
-    type: 'apartment',
-    distance: '1.2 km from center',
-    isFavorite: false,
-    hasFreeCancellation: false,
-  },
-  {
-    id: '6',
-    name: 'Boutique Hotel Champs',
-    location: 'Champs-Élysées, Paris',
-    rating: 4.5,
-    reviewCount: 1089,
-    price: 210,
-    originalPrice: 250,
-    imageUrl: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400&h=300&fit=crop',
-    amenities: ['wifi', 'gym', 'bar', 'concierge'],
-    type: 'hotel',
-    distance: '0.3 km from center',
-    isFavorite: true,
-    hasFreeCancellation: true,
-  },
-];
+
 
 const AMENITY_ICONS: Record<string, any> = {
   wifi: Wifi,
@@ -158,7 +71,7 @@ const AMENITY_ICONS: Record<string, any> = {
 export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const [favorites, setFavorites] = useState<string[]>(['2', '6']);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'price' | 'rating' | 'distance'>('price');
   const [filters, setFilters] = useState<FilterOptions>({
@@ -173,6 +86,7 @@ export default function ResultsScreen() {
     
     return {
       location: params.location as string,
+      cityCode: params.cityCode as string || 'NYC', // Default to NYC if no city code
       checkIn: params.checkIn ? new Date(params.checkIn as string) : null,
       checkOut: params.checkOut ? new Date(params.checkOut as string) : null,
       adults: parseInt(params.adults as string) || 2,
@@ -181,8 +95,32 @@ export default function ResultsScreen() {
     };
   }, [params]);
 
+  // Format dates for API call
+  const formatDateForAPI = (date: Date | null) => {
+    if (!date) return '';
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+
+  // Search hotels using tRPC
+  const hotelsQuery = trpc.example.searchHotels.useQuery(
+    {
+      cityCode: searchParams?.cityCode || 'NYC',
+      checkin: formatDateForAPI(searchParams?.checkIn || null),
+      checkout: formatDateForAPI(searchParams?.checkOut || null),
+      adults: searchParams?.adults || 2,
+      children: searchParams?.children || 0,
+      rooms: searchParams?.rooms || 1,
+    },
+    {
+      enabled: !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut,
+      retry: 1,
+    }
+  );
+
   const filteredAndSortedAccommodations = useMemo(() => {
-    let filtered = MOCK_ACCOMMODATIONS.filter(acc => {
+    const hotels = hotelsQuery.data?.data?.hotels || [];
+    
+    let filtered = hotels.filter((acc: any) => {
       // Price filter
       if (acc.price < filters.priceRange[0] || acc.price > filters.priceRange[1]) {
         return false;
@@ -216,7 +154,7 @@ export default function ResultsScreen() {
     });
 
     // Sort
-    filtered.sort((a, b) => {
+    filtered.sort((a: any, b: any) => {
       switch (sortBy) {
         case 'price':
           return a.price - b.price;
@@ -230,7 +168,7 @@ export default function ResultsScreen() {
     });
 
     return filtered;
-  }, [filters, sortBy]);
+  }, [hotelsQuery.data, filters, sortBy]);
 
   const formatDate = (date: Date | null) => {
     if (!date) return '';
@@ -359,7 +297,71 @@ export default function ResultsScreen() {
   if (!searchParams) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text>Invalid search parameters</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Invalid search parameters</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (hotelsQuery.isLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color="#1a1a1a" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle}>{searchParams.location}</Text>
+            <Text style={styles.headerSubtitle}>Searching hotels...</Text>
+          </View>
+        </View>
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Finding the best hotels for you...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (hotelsQuery.error) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color="#1a1a1a" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle}>{searchParams.location}</Text>
+            <Text style={styles.headerSubtitle}>Search failed</Text>
+          </View>
+        </View>
+        
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to search hotels</Text>
+          <Text style={styles.errorSubtext}>{hotelsQuery.error.message}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => hotelsQuery.refetch()}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -427,17 +429,34 @@ export default function ResultsScreen() {
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsCount}>
           {filteredAndSortedAccommodations.length} properties found
+          {hotelsQuery.data?.data?.totalCount && hotelsQuery.data.data.totalCount > filteredAndSortedAccommodations.length && 
+            ` (${hotelsQuery.data.data.totalCount} total available)`
+          }
         </Text>
+        {hotelsQuery.data?.success === false && (
+          <Text style={styles.apiErrorText}>
+            Using limited results: {hotelsQuery.data.message}
+          </Text>
+        )}
       </View>
 
       {/* Accommodations List */}
-      <FlatList
-        data={filteredAndSortedAccommodations}
-        renderItem={renderAccommodationCard}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-      />
+      {filteredAndSortedAccommodations.length > 0 ? (
+        <FlatList
+          data={filteredAndSortedAccommodations}
+          renderItem={renderAccommodationCard}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+        />
+      ) : (
+        <View style={styles.noResultsContainer}>
+          <Text style={styles.noResultsText}>No hotels found</Text>
+          <Text style={styles.noResultsSubtext}>
+            Try adjusting your search criteria or filters
+          </Text>
+        </View>
+      )}
 
       {/* Filters Modal */}
       <Modal
@@ -891,5 +910,75 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  backButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  apiErrorText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 4,
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

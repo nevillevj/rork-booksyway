@@ -38,7 +38,7 @@ export default function LoginScreen() {
     try {
       setIsLoading(true);
       await login({ email: email.trim(), password });
-      router.replace('/(tabs)/search');
+      router.replace('/(tabs)/home');
     } catch (error) {
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'An error occurred');
     } finally {

@@ -112,10 +112,22 @@ export default function ResultsScreen() {
       rooms: searchParams?.rooms || 1,
     },
     {
-      enabled: !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut,
+      enabled: !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut && 
+               formatDateForAPI(searchParams?.checkIn || null) !== '' && 
+               formatDateForAPI(searchParams?.checkOut || null) !== '',
       retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
     }
   );
+
+  // Debug logging
+  console.log('ResultsScreen: searchParams:', searchParams);
+  console.log('ResultsScreen: hotelsQuery enabled:', !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut && 
+               formatDateForAPI(searchParams?.checkIn || null) !== '' && 
+               formatDateForAPI(searchParams?.checkOut || null) !== '');
+  console.log('ResultsScreen: hotelsQuery isLoading:', hotelsQuery.isLoading);
+  console.log('ResultsScreen: hotelsQuery data:', hotelsQuery.data);
 
   const filteredAndSortedAccommodations = useMemo(() => {
     const hotels = hotelsQuery.data?.data?.hotels || [];

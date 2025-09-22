@@ -16,8 +16,8 @@ export const testLiteApiProcedure = publicProcedure
       console.log('=== LiteAPI Connection Test ===');
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
-      // Test with the correct LiteAPI endpoint - hotels endpoint
-      const searchUrl = 'https://api.liteapi.travel/hotels';
+      // Test with the correct LiteAPI endpoint - try without version
+      const searchUrl = 'https://api.liteapi.travel/data/hotels';
       const queryParams = new URLSearchParams({
         cityCode: 'NYC',
         date_from: '2024-12-01',

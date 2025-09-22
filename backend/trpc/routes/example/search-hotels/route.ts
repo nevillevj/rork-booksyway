@@ -44,8 +44,8 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - hotels endpoint
-      const searchUrl = 'https://api.liteapi.travel/hotels';
+      // Use the correct LiteAPI endpoint - data/hotels endpoint
+      const searchUrl = 'https://api.liteapi.travel/data/hotels';
       
       console.log('Request URL:', searchUrl);
 

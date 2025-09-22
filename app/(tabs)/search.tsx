@@ -108,10 +108,21 @@ export default function SearchScreen() {
   };
 
   const updateGuestCount = (type: 'adults' | 'children' | 'rooms', increment: boolean) => {
-    setSearchParams(prev => ({
-      ...prev,
-      [type]: Math.max(type === 'rooms' ? 1 : 0, prev[type] + (increment ? 1 : -1)),
-    }));
+    setSearchParams(prev => {
+      const currentValue = prev[type];
+      const minValue = type === 'rooms' ? 1 : (type === 'adults' ? 1 : 0);
+      const maxValue = type === 'rooms' ? 10 : (type === 'adults' ? 20 : 10);
+      
+      let newValue = currentValue + (increment ? 1 : -1);
+      newValue = Math.max(minValue, Math.min(maxValue, newValue));
+      
+      console.log(`Updating ${type}: ${currentValue} -> ${newValue}`);
+      
+      return {
+        ...prev,
+        [type]: newValue,
+      };
+    });
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {

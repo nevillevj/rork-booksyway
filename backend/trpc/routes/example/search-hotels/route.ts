@@ -28,11 +28,14 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // Try multiple endpoints to find the correct one
-      // First try: hotels search with POST
-      let searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
-      let requestMethod = 'POST';
-      let requestBody = {
+      // Try different LiteAPI endpoints based on documentation
+      let response;
+      let searchUrl;
+      let requestData;
+      
+      // First, try the hotels search endpoint (POST method)
+      searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      requestData = {
         cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
@@ -44,59 +47,56 @@ export const searchHotelsProcedure = publicProcedure
         limit: input.limit
       };
       
-      console.log('Trying search endpoint:', searchUrl);
+      console.log('Trying LiteAPI hotels/search endpoint (POST):', searchUrl);
       console.log('Using API key:', apiKey.substring(0, 10) + '...');
-      console.log('Search parameters:', requestBody);
+      console.log('Request data:', requestData);
 
-      let response = await fetch(searchUrl, {
-        method: requestMethod,
+      response = await fetch(searchUrl, {
+        method: 'POST',
         headers: {
           'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestData)
       });
-
-      // If first attempt fails, try alternative endpoints
+      
+      // If POST fails, try the data/hotels endpoint with GET
       if (!response.ok) {
-        console.log(`First attempt failed with ${response.status}, trying alternative endpoints...`);
+        console.log(`POST search failed with ${response.status}, trying data/hotels GET...`);
         
-        // Try: hotels/rates endpoint
-        searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
-        response = await fetch(searchUrl, {
-          method: 'POST',
+        searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+        const queryParams = new URLSearchParams();
+        
+        // Add parameters that might be supported
+        if (input.cityCode) queryParams.append('cityCode', input.cityCode);
+        queryParams.append('limit', input.limit.toString());
+        
+        const fullUrl = `${searchUrl}?${queryParams.toString()}`;
+        console.log('Trying data/hotels GET:', fullUrl);
+        
+        response = await fetch(fullUrl, {
+          method: 'GET',
           headers: {
             'X-API-Key': apiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
+            'Accept': 'application/json'
+          }
         });
+      }
+      
+      // If both fail, try a simple hotels list without search parameters
+      if (!response.ok) {
+        console.log(`GET data/hotels failed with ${response.status}, trying simple hotels list...`);
         
-        if (!response.ok) {
-          console.log(`Second attempt failed with ${response.status}, trying GET with query params...`);
-          
-          // Try: GET request with query parameters
-          const queryParams = new URLSearchParams({
-            cityCode: input.cityCode,
-            checkin: input.checkin,
-            checkout: input.checkout,
-            adults: input.adults.toString(),
-            children: input.children.toString(),
-            rooms: input.rooms.toString(),
-            currency: input.currency,
-            guestNationality: input.guestNationality,
-            limit: input.limit.toString()
-          });
-          
-          searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?${queryParams.toString()}`;
-          response = await fetch(searchUrl, {
-            method: 'GET',
-            headers: {
-              'X-API-Key': apiKey,
-              'Content-Type': 'application/json'
-            }
-          });
-        }
+        searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+        
+        response = await fetch(searchUrl, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': apiKey,
+            'Accept': 'application/json'
+          }
+        });
       }
 
       console.log('Response status:', response.status);

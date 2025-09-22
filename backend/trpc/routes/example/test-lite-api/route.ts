@@ -1,6 +1,6 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
 
-export default publicProcedure.query(async () => {
+export const testLiteApiProcedure = publicProcedure.query(async () => {
   try {
     const apiKey = process.env.LiteAPI_Sandbox;
     

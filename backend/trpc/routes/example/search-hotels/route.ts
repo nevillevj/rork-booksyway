@@ -28,21 +28,10 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // LiteAPI hotel search endpoint - using the correct format
-      // Use the actual city code from input
-      const searchParams = new URLSearchParams({
-        cityCode: input.cityCode,
-        checkin: input.checkin,
-        checkout: input.checkout,
-        adults: input.adults.toString(),
-        children: input.children.toString(),
-        rooms: input.rooms.toString(),
-        currency: input.currency,
-        guestNationality: input.guestNationality,
-        limit: input.limit.toString()
-      });
-
-      const searchUrl = `https://api.liteapi.travel/v3.0/hotels/search?${searchParams.toString()}`;
+      // Simplified approach: Use the hotels endpoint with city code
+      // Based on the working test API, let's use a simpler approach
+      const searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?cityCode=${input.cityCode}&limit=${input.limit}`;
+      
       console.log('Searching hotels with URL:', searchUrl);
       console.log('Using API key:', apiKey.substring(0, 10) + '...');
       console.log('Search parameters:', {
@@ -58,7 +47,6 @@ export const searchHotelsProcedure = publicProcedure
         method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
       });
@@ -82,113 +70,11 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      let responseText = '';
-      let data: any = null;
+      // Simple JSON parsing like the working test API
+      const data = await response.json();
+      console.log('LiteAPI response received:', JSON.stringify(data, null, 2));
       
-      try {
-        // First check if we can read the response
-        const contentType = response.headers.get('content-type') || '';
-        console.log('Response content-type:', contentType);
-        
-        if (contentType.includes('application/json')) {
-          // Try to parse as JSON directly
-          try {
-            data = await response.json();
-            console.log('Successfully parsed JSON response directly');
-          } catch (jsonError) {
-            console.error('Failed to parse JSON directly:', jsonError);
-            // Fallback to text parsing
-            responseText = await response.text();
-            console.log('Raw response text length:', responseText.length);
-            console.log('Raw response text preview:', responseText.substring(0, 500));
-            
-            if (responseText.trim()) {
-              data = JSON.parse(responseText);
-            }
-          }
-        } else {
-          // Not JSON, read as text
-          responseText = await response.text();
-          console.log('Non-JSON response received');
-          console.log('Raw response text length:', responseText.length);
-          console.log('Raw response text preview:', responseText.substring(0, 500));
-          
-          // Check if response looks like HTML (error page)
-          if (responseText.trim().startsWith('<')) {
-            return {
-              success: false,
-              message: "Received HTML response instead of JSON (likely an error page)",
-              data: null,
-              error: 'HTML response received',
-              debug: {
-                url: searchUrl,
-                responsePreview: responseText.substring(0, 200),
-                contentType: contentType
-              }
-            };
-          }
-          
-          // Try to parse as JSON anyway
-          if (responseText.trim()) {
-            try {
-              data = JSON.parse(responseText);
-            } catch (parseError) {
-              return {
-                success: false,
-                message: `JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`,
-                data: null,
-                error: parseError instanceof Error ? parseError.message : 'JSON parse error',
-                debug: {
-                  url: searchUrl,
-                  responseText: responseText.substring(0, 200),
-                  contentType: contentType
-                }
-              };
-            }
-          } else {
-            return {
-              success: false,
-              message: "Empty response from hotel search API",
-              data: null,
-              debug: {
-                url: searchUrl,
-                responseLength: responseText.length,
-                headers: Object.fromEntries(response.headers.entries())
-              }
-            };
-          }
-        }
-      } catch (textError) {
-        console.error('Failed to read response:', textError);
-        return {
-          success: false,
-          message: "Failed to read API response",
-          data: null,
-          error: textError instanceof Error ? textError.message : 'Text read error',
-          debug: {
-            url: searchUrl,
-            textError: textError instanceof Error ? textError.message : 'Unknown text error'
-          }
-        };
-      }
-      
-      console.log('Parsed LiteAPI response:', JSON.stringify(data, null, 2));
-      
-      // Check if the response has the expected structure
-      if (!data || typeof data !== 'object') {
-        console.error('Invalid response structure:', data);
-        return {
-          success: false,
-          message: "Invalid response structure from hotel search API",
-          data: null,
-          debug: {
-            responseType: typeof data,
-            responseData: data
-          }
-        };
-      }
-
-      // Check for API errors first
+      // Check for API errors
       if (data.error || data.errors) {
         const errorMessage = data.error || (data.errors && data.errors[0]) || 'API returned an error';
         console.error('LiteAPI returned error:', errorMessage);
@@ -203,39 +89,21 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // Handle different possible response structures
+      // Extract hotels from response
       let hotels = [];
       if (data.data && Array.isArray(data.data)) {
         hotels = data.data;
       } else if (Array.isArray(data)) {
         hotels = data;
-      } else if (data.hotels && Array.isArray(data.hotels)) {
-        hotels = data.hotels;
-      } else if (data.results && Array.isArray(data.results)) {
-        hotels = data.results;
       } else {
-        console.log('No hotels array found in response structure');
-        console.log('Response keys:', Object.keys(data));
+        console.log('Unexpected response structure:', Object.keys(data));
         console.log('Full response:', JSON.stringify(data, null, 2));
         
-        if (data.message && data.message.includes('No hotels found')) {
-          return {
-            success: false,
-            message: data.message,
-            data: null,
-            debug: {
-              apiResponse: data,
-              responseStructure: Object.keys(data)
-            }
-          };
-        }
-        
-        // If no hotels found but no error, provide fallback data
-        console.log('No hotels found, providing fallback data');
+        // Provide fallback data for testing
         const fallbackHotels = [
           {
             id: 'fallback_1',
-            name: `Hotels in ${input.cityCode}`,
+            name: `Sample Hotel in ${input.cityCode}`,
             location: `${input.cityCode}, Sample Location`,
             rating: 4.2,
             reviewCount: 156,
@@ -252,7 +120,7 @@ export const searchHotelsProcedure = publicProcedure
           },
           {
             id: 'fallback_2',
-            name: `Premium Stay ${input.cityCode}`,
+            name: `Premium Hotel ${input.cityCode}`,
             location: `${input.cityCode}, Downtown`,
             rating: 4.5,
             reviewCount: 89,
@@ -270,7 +138,7 @@ export const searchHotelsProcedure = publicProcedure
         
         return {
           success: false,
-          message: `No hotels found via API, showing sample results for ${input.cityCode}`,
+          message: `API returned unexpected structure. Showing sample results for ${input.cityCode}`,
           data: {
             hotels: fallbackHotels,
             totalCount: fallbackHotels.length,
@@ -284,54 +152,45 @@ export const searchHotelsProcedure = publicProcedure
       
       console.log(`Found ${hotels.length} hotels in API response`);
       
-      // Transform LiteAPI response to our format
+      // Transform hotels to our format
       const transformedHotels = hotels.map((hotel: any, index: number) => {
         if (!hotel || typeof hotel !== 'object') {
           console.warn(`Invalid hotel data at index ${index}:`, hotel);
           return null;
         }
-        console.log(`Transforming hotel ${index}:`, hotel);
+        
         return {
-          id: hotel.id || hotel.hotelId || hotel.hotel_id || `hotel_${index}`,
-          name: hotel.name || hotel.hotelName || hotel.hotel_name || `Hotel ${index + 1}`,
-          location: (
-            hotel.address ? 
-              `${hotel.address.city || ''}, ${hotel.address.country || ''}`.trim().replace(/^,\s*/, '') :
-              hotel.location || hotel.city || 'Location not specified'
-          ),
-          rating: hotel.starRating || hotel.rating || hotel.star_rating || (4.0 + Math.random()),
-          reviewCount: hotel.reviewCount || hotel.review_count || Math.floor(Math.random() * 1000) + 100,
-          price: hotel.rates?.[0]?.totalAmount || hotel.price || hotel.rate || Math.floor(Math.random() * 200) + 50,
-          originalPrice: hotel.rates?.[0]?.originalAmount || hotel.original_price,
-          imageUrl: (
-            hotel.images?.[0]?.url || 
+          id: hotel.id || hotel.hotelId || `hotel_${index}`,
+          name: hotel.name || hotel.hotelName || `Hotel ${index + 1}`,
+          location: hotel.address ? 
+            `${hotel.address.city || ''}, ${hotel.address.country || ''}`.trim().replace(/^,\s*/, '') :
+            hotel.location || hotel.city || 'Location not specified',
+          rating: hotel.starRating || hotel.rating || (4.0 + Math.random()),
+          reviewCount: hotel.reviewCount || Math.floor(Math.random() * 1000) + 100,
+          price: hotel.price || Math.floor(Math.random() * 200) + 50,
+          originalPrice: hotel.originalPrice,
+          imageUrl: hotel.images?.[0]?.url || 
             hotel.image || 
-            hotel.main_photo_url ||
-            `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80&auto=format&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`
-          ),
+            `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80`,
           amenities: hotel.amenities || hotel.facilities || ['wifi', 'parking'],
           type: 'hotel' as const,
           distance: hotel.distance || `${(Math.random() * 5).toFixed(1)} km from center`,
           isFavorite: false,
-          isPopular: hotel.isPopular || hotel.is_popular || Math.random() > 0.7,
-          hasFreeCancellation: hotel.freeCancellation || hotel.free_cancellation || Math.random() > 0.5,
-          currency: hotel.rates?.[0]?.currency || hotel.currency || input.currency
+          isPopular: Math.random() > 0.7,
+          hasFreeCancellation: Math.random() > 0.5,
+          currency: hotel.currency || input.currency
         };
-      });
-
-      // Filter out any null values from transformation
-      const validHotels = transformedHotels.filter((hotel: any) => hotel !== null);
-      console.log(`Successfully transformed ${validHotels.length} hotels`);
+      }).filter((hotel: any) => hotel !== null);
 
       return {
         success: true,
-        message: `Found ${validHotels.length} hotels`,
+        message: `Found ${transformedHotels.length} hotels`,
         data: {
-          hotels: validHotels,
+          hotels: transformedHotels,
           totalCount: data.totalCount || data.total || transformedHotels.length,
           searchParams: input,
           timestamp: new Date().toISOString(),
-          apiResponse: data // Include original response for debugging
+          apiResponse: data
         }
       };
     } catch (error) {

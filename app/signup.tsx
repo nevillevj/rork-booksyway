@@ -87,7 +87,7 @@ export default function SignUpScreen() {
         agreeToPrivacy: agreements.privacy,
         agreeToMarketing: agreements.marketing,
       });
-      router.replace('/(tabs)/search');
+      router.replace('/(tabs)/home');
     } catch (error) {
       Alert.alert('Sign Up Failed', error instanceof Error ? error.message : 'An error occurred');
     } finally {

@@ -1,42 +1,55 @@
 import { Tabs } from "expo-router";
-import { Search, Heart, User } from "lucide-react-native";
+import { Search, Heart, Calendar, User } from "lucide-react-native";
 import React from "react";
 
-import Colors from "@/constants/colors";
+
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
+        tabBarActiveTintColor: "#0066CC",
+        tabBarInactiveTintColor: "#666",
         headerShown: false,
+        tabBarStyle: {
+          backgroundColor: "white",
+          borderTopWidth: 1,
+          borderTopColor: "#E5E5E5",
+        },
       }}
     >
       <Tabs.Screen
-        name="search"
+        name="home"
         options={{
           title: "Search",
-          tabBarIcon: ({ color }) => <Search color={color} size={20} />,
+          tabBarIcon: ({ color }) => <Search color={color} size={24} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: "Favorites",
-          tabBarIcon: ({ color }) => <Heart color={color} size={20} />,
+          title: "Saved",
+          tabBarIcon: ({ color }) => <Heart color={color} size={24} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="search"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <User color={color} size={20} />,
+          title: "Bookings",
+          tabBarIcon: ({ color }) => <Calendar color={color} size={24} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Sign in",
+          tabBarIcon: ({ color }) => <User color={color} size={24} />,
         }}
       />
     </Tabs>

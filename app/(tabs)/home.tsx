@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MapPin, Heart, Search, Calendar, Users, Bell, Car, Plane, MapPin as Attractions, X } from 'lucide-react-native';
 import { MOCK_ACCOMMODATIONS } from '@/constants/mockData';
+import { trpc } from '@/lib/trpc';
 
 interface FeaturedHotel {
   id: string;
@@ -539,8 +540,60 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+        
+        {/* Test API Button */}
+        <TestApiButton />
       </ScrollView>
       {renderDatePicker()}
+    </View>
+  );
+}
+
+function TestApiButton() {
+  const testApiQuery = trpc.example.testLiteApi.useQuery(undefined, {
+    enabled: false, // Don't auto-run
+  });
+
+  const handleTestApi = () => {
+    console.log('Testing LiteAPI connection...');
+    testApiQuery.refetch();
+  };
+
+  return (
+    <View style={styles.testButtonContainer}>
+      <TouchableOpacity 
+        style={styles.testButton}
+        onPress={handleTestApi}
+        disabled={testApiQuery.isLoading}
+      >
+        <Text style={styles.testButtonText}>
+          {testApiQuery.isLoading ? 'Testing...' : 'Test LiteAPI Connection'}
+        </Text>
+      </TouchableOpacity>
+      
+      {testApiQuery.data && (
+        <View style={styles.testResultContainer}>
+          <Text style={[
+            styles.testResultText,
+            { color: testApiQuery.data.success ? '#00AA6C' : '#FF4444' }
+          ]}>
+            {testApiQuery.data.message}
+          </Text>
+          {testApiQuery.data.success && testApiQuery.data.data && (
+            <Text style={styles.testDetailsText}>
+              Status: {testApiQuery.data.data.status} | Cities: {testApiQuery.data.data.cities?.length || 0}
+            </Text>
+          )}
+        </View>
+      )}
+      
+      {testApiQuery.error && (
+        <View style={styles.testResultContainer}>
+          <Text style={[styles.testResultText, { color: '#FF4444' }]}>
+            Error: {testApiQuery.error.message}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -984,5 +1037,41 @@ const styles = StyleSheet.create({
   },
   nextMonthContainer: {
     marginTop: 32,
+  },
+  testButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  testButton: {
+    backgroundColor: '#FF6900',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  testResultContainer: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  testResultText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  testDetailsText: {
+    fontSize: 12,
+    color: '#666',
   },
 });

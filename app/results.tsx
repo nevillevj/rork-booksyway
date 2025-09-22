@@ -434,9 +434,17 @@ export default function ResultsScreen() {
           }
         </Text>
         {hotelsQuery.data?.success === false && (
-          <Text style={styles.apiErrorText}>
-            Using limited results: {hotelsQuery.data.message}
-          </Text>
+          <View style={styles.apiErrorContainer}>
+            <Text style={styles.apiErrorText}>
+              {hotelsQuery.data.data?.fallback ? '⚠️ ' : '❌ '}
+              {hotelsQuery.data.message}
+            </Text>
+            {hotelsQuery.data.data?.fallback && (
+              <Text style={styles.fallbackText}>
+                Showing sample hotels while we work on connecting to live data
+              </Text>
+            )}
+          </View>
         )}
       </View>
 
@@ -958,10 +966,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  apiErrorContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFEAA7',
+  },
   apiErrorText: {
     fontSize: 12,
-    color: '#FF6B6B',
+    color: '#856404',
+    fontWeight: '600',
+  },
+  fallbackText: {
+    fontSize: 11,
+    color: '#6C757D',
     marginTop: 4,
+    fontStyle: 'italic',
   },
   noResultsContainer: {
     flex: 1,

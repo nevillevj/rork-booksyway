@@ -55,7 +55,12 @@ export default function HomeScreen() {
     checkOut: null,
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [guests] = useState('1 room · 2 adults · 0 children');
+  const [guestConfig, setGuestConfig] = useState({
+    rooms: 1,
+    adults: 2,
+    children: 0
+  });
+  const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'calendar' | 'flexible'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
@@ -190,6 +195,109 @@ export default function HomeScreen() {
           })}
         </View>
       </View>
+    );
+  };
+
+  const renderGuestPicker = () => {
+    return (
+      <Modal
+        visible={showGuestPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.guestPickerContainer}>
+          <View style={styles.guestPickerHeader}>
+            <TouchableOpacity onPress={() => setShowGuestPicker(false)}>
+              <X size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.guestPickerTitle}>Rooms and guests</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          
+          <View style={styles.guestPickerContent}>
+            {/* Rooms */}
+            <View style={styles.guestRow}>
+              <Text style={styles.guestLabel}>Rooms</Text>
+              <View style={styles.counterContainer}>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.rooms <= 1 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, rooms: Math.max(1, prev.rooms - 1) }))}
+                  disabled={guestConfig.rooms <= 1}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.rooms <= 1 && styles.disabledCounterButtonText]}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{guestConfig.rooms}</Text>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.rooms >= 8 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, rooms: Math.min(8, prev.rooms + 1) }))}
+                  disabled={guestConfig.rooms >= 8}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.rooms >= 8 && styles.disabledCounterButtonText]}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Adults */}
+            <View style={styles.guestRow}>
+              <View>
+                <Text style={styles.guestLabel}>Adults</Text>
+                <Text style={styles.guestSubLabel}>Ages 18 or above</Text>
+              </View>
+              <View style={styles.counterContainer}>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.adults <= 1 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, adults: Math.max(1, prev.adults - 1) }))}
+                  disabled={guestConfig.adults <= 1}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.adults <= 1 && styles.disabledCounterButtonText]}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{guestConfig.adults}</Text>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.adults >= 16 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, adults: Math.min(16, prev.adults + 1) }))}
+                  disabled={guestConfig.adults >= 16}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.adults >= 16 && styles.disabledCounterButtonText]}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Children */}
+            <View style={styles.guestRow}>
+              <View>
+                <Text style={styles.guestLabel}>Children</Text>
+                <Text style={styles.guestSubLabel}>Ages 0-17</Text>
+              </View>
+              <View style={styles.counterContainer}>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.children <= 0 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, children: Math.max(0, prev.children - 1) }))}
+                  disabled={guestConfig.children <= 0}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.children <= 0 && styles.disabledCounterButtonText]}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{guestConfig.children}</Text>
+                <TouchableOpacity
+                  style={[styles.counterButton, guestConfig.children >= 10 && styles.disabledCounterButton]}
+                  onPress={() => setGuestConfig(prev => ({ ...prev, children: Math.min(10, prev.children + 1) }))}
+                  disabled={guestConfig.children >= 10}
+                >
+                  <Text style={[styles.counterButtonText, guestConfig.children >= 10 && styles.disabledCounterButtonText]}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.guestPickerFooter}>
+            <TouchableOpacity
+              style={styles.selectGuestsButton}
+              onPress={() => setShowGuestPicker(false)}
+            >
+              <Text style={styles.selectGuestsButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -414,9 +522,9 @@ export default function HomeScreen() {
       cityCode: cityCode,
       checkIn: dateSelection.checkIn.toISOString().split('T')[0],
       checkOut: dateSelection.checkOut.toISOString().split('T')[0],
-      adults: 2,
-      children: 0,
-      rooms: 1
+      adults: guestConfig.adults,
+      children: guestConfig.children,
+      rooms: guestConfig.rooms
     });
     
     const params = new URLSearchParams({
@@ -424,9 +532,9 @@ export default function HomeScreen() {
       cityCode: cityCode,
       checkIn: dateSelection.checkIn.toISOString(),
       checkOut: dateSelection.checkOut.toISOString(),
-      adults: '2',
-      children: '0',
-      rooms: '1',
+      adults: guestConfig.adults.toString(),
+      children: guestConfig.children.toString(),
+      rooms: guestConfig.rooms.toString(),
     });
     
     router.push(`/results?${params.toString()}`);
@@ -441,9 +549,9 @@ export default function HomeScreen() {
     const params = new URLSearchParams({
       checkIn: checkIn.toISOString(),
       checkOut: checkOut.toISOString(),
-      adults: '2',
-      children: '0',
-      rooms: '1',
+      adults: guestConfig.adults.toString(),
+      children: guestConfig.children.toString(),
+      rooms: guestConfig.rooms.toString(),
     });
     
     router.push(`/accommodation/${hotel.id}?${params.toString()}`);
@@ -555,9 +663,14 @@ export default function HomeScreen() {
               <Text style={styles.dateInputText}>{formatDateRange()}</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.guestInputContainer}>
+            <TouchableOpacity 
+              style={styles.guestInputContainer}
+              onPress={() => setShowGuestPicker(true)}
+            >
               <Users color="#666" size={20} />
-              <Text style={styles.guestInputText}>{guests}</Text>
+              <Text style={styles.guestInputText}>
+                {guestConfig.rooms} room{guestConfig.rooms > 1 ? 's' : ''} · {guestConfig.adults} adult{guestConfig.adults > 1 ? 's' : ''} · {guestConfig.children} child{guestConfig.children !== 1 ? 'ren' : ''}
+              </Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -598,6 +711,7 @@ export default function HomeScreen() {
         <TestApiButton />
       </ScrollView>
       {renderDatePicker()}
+      {renderGuestPicker()}
     </View>
   );
 }
@@ -1126,5 +1240,94 @@ const styles = StyleSheet.create({
   testDetailsText: {
     fontSize: 12,
     color: '#666',
+  },
+  guestPickerContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  guestPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  guestPickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  guestPickerContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+  },
+  guestRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  guestLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  guestSubLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  counterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  counterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0066CC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledCounterButton: {
+    backgroundColor: '#E5E5E5',
+  },
+  counterButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  disabledCounterButtonText: {
+    color: '#999',
+  },
+  counterValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  guestPickerFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  selectGuestsButton: {
+    backgroundColor: '#0066CC',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  selectGuestsButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

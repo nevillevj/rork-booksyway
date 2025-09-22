@@ -527,6 +527,22 @@ export default function HomeScreen() {
       rooms: guestConfig.rooms
     });
     
+    // Format dates properly for API (YYYY-MM-DD)
+    const checkInFormatted = dateSelection.checkIn.toISOString().split('T')[0];
+    const checkOutFormatted = dateSelection.checkOut.toISOString().split('T')[0];
+    
+    console.log('Formatted search parameters:', {
+      destination: destination.trim(),
+      cityCode: cityCode,
+      checkIn: checkInFormatted,
+      checkOut: checkOutFormatted,
+      adults: guestConfig.adults,
+      children: guestConfig.children,
+      rooms: guestConfig.rooms,
+      currency: 'USD',
+      guestNationality: 'US'
+    });
+    
     const params = new URLSearchParams({
       location: destination.trim(),
       cityCode: cityCode,

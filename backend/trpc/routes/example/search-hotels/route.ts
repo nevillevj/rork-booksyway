@@ -33,32 +33,34 @@ export const searchHotelsProcedure = publicProcedure
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
       // Build occupancies array - mandatory parameter for LiteAPI
+      // Format: [{ adults: number, children: number }] for each room
       const occupancies = [];
       for (let i = 0; i < input.rooms; i++) {
         occupancies.push({
           adults: Math.ceil(input.adults / input.rooms),
-          children: i === 0 ? input.children : 0
+          children: i === 0 ? input.children : 0 // Put all children in first room
         });
       }
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - v3.0 for hotel search
-      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      // Use the correct LiteAPI endpoint - hotels endpoint
+      const searchUrl = 'https://api.liteapi.travel/hotels';
       
       console.log('Request URL:', searchUrl);
 
-      // Build query parameters for GET request
+      // Build query parameters for GET request according to LiteAPI docs
       const queryParams = new URLSearchParams({
         cityCode: input.cityCode,
-        checkin: input.checkin,
-        checkout: input.checkout,
+        date_from: input.checkin,
+        date_to: input.checkout,
         currency: input.currency,
-        guestNationality: input.guestNationality,
+        nationality: input.guestNationality,
         limit: input.limit.toString()
       });
       
-      // Add occupancies as separate parameters
+      // Add occupancies in the correct format for LiteAPI
+      // Each occupancy should be added as separate parameters
       occupancies.forEach((occupancy, index) => {
         queryParams.append(`occupancies[${index}][adults]`, occupancy.adults.toString());
         queryParams.append(`occupancies[${index}][children]`, occupancy.children.toString());

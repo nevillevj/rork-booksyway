@@ -81,12 +81,59 @@ export default function ResultsScreen() {
     propertyType: [],
   });
 
+  // Simple city name to city code mapping
+  const getCityCode = (locationName: string): string => {
+    const cityMapping: Record<string, string> = {
+      'New York': 'NYC',
+      'Paris': 'PAR',
+      'London': 'LON',
+      'Tokyo': 'TYO',
+      'Dubai': 'DXB',
+      'Barcelona': 'BCN',
+      'Rome': 'ROM',
+      'Amsterdam': 'AMS',
+      'Sydney': 'SYD',
+      'Bangkok': 'BKK',
+      'Los Angeles': 'LAX',
+      'San Francisco': 'SFO',
+      'Miami': 'MIA',
+      'Chicago': 'CHI',
+      'Boston': 'BOS',
+      'Las Vegas': 'LAS',
+      'Berlin': 'BER',
+      'Madrid': 'MAD',
+      'Vienna': 'VIE',
+      'Prague': 'PRG'
+    };
+    
+    // Try exact match first
+    if (cityMapping[locationName]) {
+      return cityMapping[locationName];
+    }
+    
+    // Try partial match
+    const partialMatch = Object.keys(cityMapping).find(city => 
+      city.toLowerCase().includes(locationName.toLowerCase()) ||
+      locationName.toLowerCase().includes(city.toLowerCase())
+    );
+    
+    if (partialMatch) {
+      return cityMapping[partialMatch];
+    }
+    
+    // Default fallback
+    return 'NYC';
+  };
+
   const searchParams = useMemo(() => {
     if (!params.location) return null;
     
+    const locationName = params.location as string;
+    const cityCode = params.cityCode as string || getCityCode(locationName);
+    
     return {
-      location: params.location as string,
-      cityCode: params.cityCode as string || 'NYC', // Default to NYC if no city code
+      location: locationName,
+      cityCode: cityCode,
       checkIn: params.checkIn ? new Date(params.checkIn as string) : null,
       checkOut: params.checkOut ? new Date(params.checkOut as string) : null,
       adults: parseInt(params.adults as string) || 2,

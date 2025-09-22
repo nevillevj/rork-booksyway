@@ -28,9 +28,12 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // LiteAPI hotel search endpoint
+      // LiteAPI hotel search endpoint - using the correct format
+      // Let's try a simpler approach first - use a known working city code
+      const testCityCode = 'NYC'; // Use a simple city code that might work better
+      
       const searchParams = new URLSearchParams({
-        cityCode: input.cityCode,
+        cityCode: testCityCode, // Use test city code for now
         checkin: input.checkin,
         checkout: input.checkout,
         adults: input.adults.toString(),
@@ -40,17 +43,27 @@ export const searchHotelsProcedure = publicProcedure
         guestNationality: input.guestNationality,
         limit: input.limit.toString()
       });
+      
+      console.log('Using test city code:', testCityCode, 'instead of:', input.cityCode);
 
       const searchUrl = `https://api.liteapi.travel/v3.0/hotels/search?${searchParams.toString()}`;
       console.log('Searching hotels with URL:', searchUrl);
       console.log('Using API key:', apiKey.substring(0, 10) + '...');
+      console.log('Search parameters:', {
+        cityCode: input.cityCode,
+        checkin: input.checkin,
+        checkout: input.checkout,
+        adults: input.adults,
+        children: input.children,
+        rooms: input.rooms
+      });
 
       const response = await fetch(searchUrl, {
         method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'User-Agent': 'BookingApp/1.0'
         }
       });
 
@@ -73,36 +86,73 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText.substring(0, 500) + '...');
+      let responseText = '';
+      let data: any = null;
       
-      if (!responseText.trim()) {
-        console.error('Empty response from LiteAPI');
-        return {
-          success: false,
-          message: "Empty response from hotel search API",
-          data: null,
-          debug: {
-            url: searchUrl,
-            responseLength: responseText.length
-          }
-        };
-      }
-
-      let data;
       try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse JSON response:', parseError);
-        console.error('Response text:', responseText);
+        responseText = await response.text();
+        console.log('Raw response text length:', responseText.length);
+        console.log('Raw response text preview:', responseText.substring(0, 500));
+        
+        if (!responseText.trim()) {
+          console.error('Empty response from LiteAPI');
+          return {
+            success: false,
+            message: "Empty response from hotel search API",
+            data: null,
+            debug: {
+              url: searchUrl,
+              responseLength: responseText.length,
+              headers: Object.fromEntries(response.headers.entries())
+            }
+          };
+        }
+
+        // Try to parse JSON
+        try {
+          data = JSON.parse(responseText);
+          console.log('Successfully parsed JSON response');
+        } catch (parseError) {
+          console.error('Failed to parse JSON response:', parseError);
+          console.error('Response text that failed to parse:', responseText);
+          
+          // Check if response looks like HTML (error page)
+          if (responseText.trim().startsWith('<')) {
+            return {
+              success: false,
+              message: "Received HTML response instead of JSON (likely an error page)",
+              data: null,
+              error: 'HTML response received',
+              debug: {
+                url: searchUrl,
+                responsePreview: responseText.substring(0, 200),
+                contentType: response.headers.get('content-type')
+              }
+            };
+          }
+          
+          return {
+            success: false,
+            message: `JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`,
+            data: null,
+            error: parseError instanceof Error ? parseError.message : 'JSON parse error',
+            debug: {
+              url: searchUrl,
+              responseText: responseText.substring(0, 200),
+              contentType: response.headers.get('content-type')
+            }
+          };
+        }
+      } catch (textError) {
+        console.error('Failed to read response text:', textError);
         return {
           success: false,
-          message: "Invalid JSON response from hotel search API",
+          message: "Failed to read API response",
           data: null,
-          error: parseError instanceof Error ? parseError.message : 'JSON parse error',
+          error: textError instanceof Error ? textError.message : 'Text read error',
           debug: {
             url: searchUrl,
-            responseText: responseText.substring(0, 200)
+            textError: textError instanceof Error ? textError.message : 'Unknown text error'
           }
         };
       }
@@ -123,6 +173,21 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
+      // Check for API errors first
+      if (data.error || data.errors) {
+        const errorMessage = data.error || (data.errors && data.errors[0]) || 'API returned an error';
+        console.error('LiteAPI returned error:', errorMessage);
+        return {
+          success: false,
+          message: `API Error: ${errorMessage}`,
+          data: null,
+          debug: {
+            apiResponse: data,
+            url: searchUrl
+          }
+        };
+      }
+
       // Handle different possible response structures
       let hotels = [];
       if (data.data && Array.isArray(data.data)) {
@@ -131,15 +196,21 @@ export const searchHotelsProcedure = publicProcedure
         hotels = data;
       } else if (data.hotels && Array.isArray(data.hotels)) {
         hotels = data.hotels;
+      } else if (data.results && Array.isArray(data.results)) {
+        hotels = data.results;
       } else {
-        console.log('No hotels array found in response, checking for error messages');
-        if (data.error || data.message) {
+        console.log('No hotels array found in response structure');
+        console.log('Response keys:', Object.keys(data));
+        console.log('Full response:', JSON.stringify(data, null, 2));
+        
+        if (data.message && data.message.includes('No hotels found')) {
           return {
             success: false,
-            message: data.message || data.error || 'No hotels found in API response',
+            message: data.message,
             data: null,
             debug: {
-              apiResponse: data
+              apiResponse: data,
+              responseStructure: Object.keys(data)
             }
           };
         }

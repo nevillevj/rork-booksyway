@@ -367,46 +367,56 @@ export default function HomeScreen() {
       return;
     }
     
-    // For now, we'll use a simple mapping for common cities
-    // In a real app, you'd want to implement city search with autocomplete
+    // LiteAPI uses different city codes - let's try some common ones
+    // In a real app, you'd want to implement city search with autocomplete using the cities API
     const getCityCode = (destination: string): string => {
       const cityMappings: Record<string, string> = {
-        'new york': 'NYC',
-        'nyc': 'NYC',
-        'new york city': 'NYC',
-        'london': 'LON',
-        'paris': 'PAR',
-        'tokyo': 'TYO',
-        'dubai': 'DXB',
-        'singapore': 'SIN',
-        'hong kong': 'HKG',
-        'los angeles': 'LAX',
-        'chicago': 'CHI',
-        'miami': 'MIA',
-        'las vegas': 'LAS',
-        'san francisco': 'SFO',
-        'boston': 'BOS',
-        'washington': 'WAS',
-        'seattle': 'SEA',
-        'barcelona': 'BCN',
-        'rome': 'ROM',
-        'amsterdam': 'AMS',
-        'berlin': 'BER',
-        'madrid': 'MAD',
-        'istanbul': 'IST',
-        'bangkok': 'BKK',
-        'sydney': 'SYD',
-        'melbourne': 'MEL',
-        'toronto': 'YYZ',
-        'vancouver': 'YVR',
-        'montreal': 'YUL'
+        // Major US cities
+        'new york': '5128581',
+        'nyc': '5128581',
+        'new york city': '5128581',
+        'los angeles': '5368361',
+        'chicago': '4887398',
+        'miami': '4164138',
+        'las vegas': '5506956',
+        'san francisco': '5391959',
+        'boston': '4930956',
+        'washington': '4140963',
+        'seattle': '5809844',
+        
+        // International cities
+        'london': '2643743',
+        'paris': '2988507',
+        'tokyo': '1850147',
+        'dubai': '292223',
+        'singapore': '1880252',
+        'hong kong': '1819729',
+        'barcelona': '3128760',
+        'rome': '3169070',
+        'amsterdam': '2759794',
+        'berlin': '2950159',
+        'madrid': '3117735',
+        'istanbul': '745044',
+        'bangkok': '1609350',
+        'sydney': '2147714',
+        'melbourne': '2158177',
+        'toronto': '6167865',
+        'vancouver': '6173331',
+        'montreal': '6077243'
       };
       
       const normalizedDestination = destination.toLowerCase().trim();
-      return cityMappings[normalizedDestination] || 'NYC'; // Default to NYC
+      return cityMappings[normalizedDestination] || '5128581'; // Default to New York
     };
     
     const cityCode = getCityCode(destination);
+    
+    console.log('Search initiated with:', {
+      destination: destination.trim(),
+      cityCode: cityCode,
+      checkIn: dateSelection.checkIn.toISOString().split('T')[0],
+      checkOut: dateSelection.checkOut.toISOString().split('T')[0]
+    });
     
     const params = new URLSearchParams({
       location: destination.trim(),

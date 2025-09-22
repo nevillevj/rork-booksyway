@@ -16,34 +16,28 @@ export const testLiteApiProcedure = publicProcedure
       console.log('=== LiteAPI Connection Test ===');
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
-      // Test with a simple hotel search to verify the API is working
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
-      const testRequestData = {
+      // Test with the correct LiteAPI endpoint - GET request to data/hotels
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      const queryParams = new URLSearchParams({
         cityCode: 'NYC',
         checkin: '2024-12-01',
         checkout: '2024-12-03',
-        occupancies: [
-          {
-            adults: 2,
-            children: 0
-          }
-        ],
         currency: 'USD',
         guestNationality: 'US',
-        limit: 5
-      };
+        limit: '5',
+        'occupancies[0][adults]': '2',
+        'occupancies[0][children]': '0'
+      });
       
-      console.log('Test request URL:', searchUrl);
-      console.log('Test request data:', JSON.stringify(testRequestData, null, 2));
+      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
+      console.log('Test request URL:', fullUrl);
       
-      const response = await fetch(searchUrl, {
-        method: 'POST',
+      const response = await fetch(fullUrl, {
+        method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Content-Type': 'application/json',
           'Accept': 'application/json'
-        },
-        body: JSON.stringify(testRequestData)
+        }
       });
       
       console.log('Test response status:', response.status);
@@ -63,7 +57,7 @@ export const testLiteApiProcedure = publicProcedure
             httpStatus: response.status,
             httpStatusText: response.statusText,
             responseBody: responseText.substring(0, 1000),
-            requestData: testRequestData,
+            requestUrl: fullUrl,
             apiKeyPresent: !!apiKey,
             endpoint: searchUrl
           }
@@ -123,7 +117,7 @@ export const testLiteApiProcedure = publicProcedure
           responseStructure: Object.keys(data),
           apiKeyPresent: !!apiKey,
           endpoint: searchUrl,
-          testRequestData: testRequestData,
+          testRequestUrl: fullUrl,
           sampleResponse: JSON.stringify(data, null, 2).substring(0, 1000)
         }
       };

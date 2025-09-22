@@ -43,29 +43,36 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Try the correct LiteAPI endpoint based on documentation
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
-      const requestData = {
+      // Use the correct LiteAPI endpoint - v3.0 for hotel search
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      
+      console.log('Request URL:', searchUrl);
+
+      // Build query parameters for GET request
+      const queryParams = new URLSearchParams({
         cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
-        occupancies: occupancies,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        limit: input.limit
-      };
+        limit: input.limit.toString()
+      });
       
-      console.log('Request URL:', searchUrl);
-      console.log('Request payload:', JSON.stringify(requestData, null, 2));
-
-      const response = await fetch(searchUrl, {
-        method: 'POST',
+      // Add occupancies as separate parameters
+      occupancies.forEach((occupancy, index) => {
+        queryParams.append(`occupancies[${index}][adults]`, occupancy.adults.toString());
+        queryParams.append(`occupancies[${index}][children]`, occupancy.children.toString());
+      });
+      
+      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
+      console.log('Full request URL:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Content-Type': 'application/json',
           'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestData)
+        }
       });
 
       console.log('Response status:', response.status);
@@ -150,7 +157,15 @@ export const searchHotelsProcedure = publicProcedure
               httpStatusText: response.statusText,
               responseBody: responseText.substring(0, 1000),
               requestUrl: searchUrl,
-              requestData: requestData
+              requestParams: {
+                cityCode: input.cityCode,
+                checkin: input.checkin,
+                checkout: input.checkout,
+                occupancies: occupancies,
+                currency: input.currency,
+                guestNationality: input.guestNationality,
+                limit: input.limit
+              }
             }
           }
         };

@@ -1015,4 +1015,17 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  cancelSearchButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#666',
+    borderRadius: 8,
+  },
+  cancelSearchButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

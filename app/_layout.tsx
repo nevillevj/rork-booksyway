@@ -5,7 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StorageProvider } from "@/contexts/StorageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import AuthGuard from "@/components/AuthGuard";
+
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -40,11 +40,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <StorageProvider>
           <AuthProvider>
-            <AuthGuard>
-              <GestureHandlerRootView>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </AuthGuard>
+            <GestureHandlerRootView>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
           </AuthProvider>
         </StorageProvider>
       </QueryClientProvider>

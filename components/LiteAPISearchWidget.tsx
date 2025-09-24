@@ -51,24 +51,22 @@ export default function LiteAPISearchWidget({
                     publicKey: '${publicKey}'
                 });
                 
-                LiteAPI.SearchBar.render({
-                    containerId: 'search-bar',
-                    config: {
-                        style: {
-                            primaryColor: '#0F4C81',
-                            secondaryColor: '#ff6900',
-                            borderRadius: '8px',
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                        },
-                        defaultValues: {
-                            currency: 'USD',
-                            language: 'en'
-                        },
-                        features: {
-                            showGuestSelector: true,
-                            showDatePicker: true,
-                            showDestinationSearch: true
-                        }
+                LiteAPI.SearchBar.create({
+                    selector: '#search-bar',
+                    style: {
+                        primaryColor: '#0F4C81',
+                        secondaryColor: '#ff6900',
+                        borderRadius: '8px',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    },
+                    defaultValues: {
+                        currency: 'USD',
+                        language: 'en'
+                    },
+                    features: {
+                        showGuestSelector: true,
+                        showDatePicker: true,
+                        showDestinationSearch: true
                     },
                     onSearch: function(searchData) {
                         console.log('Search initiated:', searchData);

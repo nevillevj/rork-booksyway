@@ -120,7 +120,7 @@ export default function SearchScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationQuery, setLocationQuery] = useState('');
   const [filteredLocations, setFilteredLocations] = useState<LocationSuggestion[]>([]);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+
 
   const formatDate = (date: Date | null) => {
     if (!date) return '';
@@ -234,6 +234,8 @@ export default function SearchScreen() {
     {
       enabled: locationQuery.trim().length >= 2,
       staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1, // Only retry once to avoid long delays
+      retryDelay: 1000, // 1 second delay
     }
   );
 
@@ -242,18 +244,16 @@ export default function SearchScreen() {
     if (!query || typeof query !== 'string') {
       setLocationQuery('');
       setFilteredLocations([]);
-      setShowLocationSuggestions(false);
       return;
     }
     
     // Limit query length and sanitize
     const sanitizedQuery = query.trim().slice(0, 100);
     setLocationQuery(sanitizedQuery);
-    setShowLocationSuggestions(sanitizedQuery.length >= 2);
+
     
     if (sanitizedQuery === '') {
       setFilteredLocations([]);
-      setShowLocationSuggestions(false);
       return;
     }
     
@@ -382,6 +382,17 @@ export default function SearchScreen() {
         <View style={styles.popularSection}>
           <Text style={styles.sectionTitle}>API Connection Test</Text>
           <TestApiSection />
+          
+          {/* Network Status Info */}
+          <View style={styles.networkStatusCard}>
+            <Text style={styles.networkStatusTitle}>Network Status</Text>
+            <Text style={styles.networkStatusText}>
+              If you see &quot;Network error&quot; messages, please check:
+            </Text>
+            <Text style={styles.networkStatusBullet}>• Your internet connection</Text>
+            <Text style={styles.networkStatusBullet}>• Backend server is running on localhost:8081</Text>
+            <Text style={styles.networkStatusBullet}>• EXPO_PUBLIC_RORK_API_BASE_URL is set correctly</Text>
+          </View>
         </View>
         
         {/* Quick Test - Hotel Details */}
@@ -554,7 +565,8 @@ export default function SearchScreen() {
                   </View>
                 ) : citiesQuery.error ? (
                   <View style={styles.locationItem}>
-                    <Text style={styles.locationItemName}>Error loading suggestions</Text>
+                    <Text style={styles.locationItemName}>Network error - using local suggestions</Text>
+                    <Text style={styles.locationItemSubtitle}>Check your internet connection</Text>
                   </View>
                 ) : null}
               </View>
@@ -1078,5 +1090,30 @@ const styles = StyleSheet.create({
   },
   apiSuggestionsSection: {
     marginBottom: 20,
+  },
+  networkStatusCard: {
+    backgroundColor: '#fff3cd',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#ffeaa7',
+  },
+  networkStatusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  networkStatusText: {
+    fontSize: 14,
+    color: '#856404',
+    marginBottom: 8,
+  },
+  networkStatusBullet: {
+    fontSize: 14,
+    color: '#856404',
+    marginLeft: 8,
+    marginBottom: 4,
   },
 });

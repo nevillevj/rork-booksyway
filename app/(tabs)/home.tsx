@@ -50,7 +50,6 @@ interface DateSelection {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [destination, setDestination] = useState('');
-  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [dateSelection, setDateSelection] = useState<DateSelection>({
     checkIn: null,
     checkOut: null,
@@ -123,8 +122,7 @@ export default function HomeScreen() {
   };
 
   const handleDurationSelect = (days: number) => {
-    // Input validation
-    if (typeof days !== 'number' || days <= 0 || days > 365) return;
+    if (typeof days !== 'number' || days <= 0) return;
     setSelectedDuration(days);
     if (dateSelection.checkIn) {
       const checkOut = new Date(dateSelection.checkIn);
@@ -581,45 +579,6 @@ export default function HomeScreen() {
     router.push(`/results?${params.toString()}`);
   };
 
-  // Cities autocomplete query
-  const citiesQuery = trpc.example.getCities.useQuery(
-    { 
-      query: destination.trim(),
-      limit: 8
-    },
-    {
-      enabled: destination.trim().length >= 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1, // Only retry once to avoid long delays
-      retryDelay: 1000, // 1 second delay
-    }
-  );
-  
-  // Log errors separately
-  if (citiesQuery.error) {
-    console.error('Cities query error:', citiesQuery.error.message);
-    // Check if it's a connection error
-    if (citiesQuery.error.message.includes('Cannot connect to backend server')) {
-      console.error('🚨 BACKEND NOT RUNNING! Start it with: bun run start-backend.ts');
-    }
-  }
-
-  const handleDestinationChange = (text: string) => {
-    // Input validation
-    if (typeof text !== 'string') return;
-    const sanitizedText = text.slice(0, 100); // Limit length
-    setDestination(sanitizedText);
-    setShowDestinationSuggestions(sanitizedText.trim().length >= 2);
-  };
-
-  const handleDestinationSelect = (cityName: string) => {
-    // Input validation
-    if (!cityName || typeof cityName !== 'string') return;
-    const sanitizedCityName = cityName.trim().slice(0, 100);
-    setDestination(sanitizedCityName);
-    setShowDestinationSuggestions(false);
-  };
-
   const handleHotelPress = (hotel: FeaturedHotel) => {
     const checkIn = new Date();
     checkIn.setDate(checkIn.getDate() + 1);
@@ -730,49 +689,10 @@ export default function HomeScreen() {
                 style={styles.searchInput}
                 placeholder="Enter your destination"
                 value={destination}
-                onChangeText={handleDestinationChange}
+                onChangeText={setDestination}
                 placeholderTextColor="#999"
-                onFocus={() => destination.trim().length >= 2 && setShowDestinationSuggestions(true)}
-                onBlur={() => {
-                  // Delay hiding suggestions to allow for selection
-                  setTimeout(() => setShowDestinationSuggestions(false), 200);
-                }}
               />
             </View>
-            
-            {/* Destination Suggestions */}
-            {showDestinationSuggestions && destination.trim().length >= 2 && (
-              <View style={styles.suggestionsContainer}>
-                {citiesQuery.isLoading && (
-                  <View style={styles.suggestionItem}>
-                    <Text style={styles.suggestionText}>Searching...</Text>
-                  </View>
-                )}
-                {citiesQuery.data?.success && citiesQuery.data.data?.cities && citiesQuery.data.data.cities.length > 0 ? (
-                  citiesQuery.data.data.cities.map((city: any) => (
-                    <TouchableOpacity
-                      key={city.id}
-                      style={styles.suggestionItem}
-                      onPress={() => handleDestinationSelect(city.displayName)}
-                    >
-                      <MapPin size={16} color="#666" style={styles.suggestionIcon} />
-                      <View style={styles.suggestionTextContainer}>
-                        <Text style={styles.suggestionText}>{city.name}</Text>
-                        <Text style={styles.suggestionSubtext}>{city.country}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                ) : citiesQuery.data?.success && citiesQuery.data.data?.cities?.length === 0 ? (
-                  <View style={styles.suggestionItem}>
-                    <Text style={styles.suggestionText}>No cities found</Text>
-                  </View>
-                ) : citiesQuery.error ? (
-                  <View style={styles.suggestionItem}>
-                    <Text style={styles.suggestionText}>Error loading suggestions</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
             
             <TouchableOpacity 
               style={styles.dateInputContainer}
@@ -828,9 +748,6 @@ export default function HomeScreen() {
         
         {/* Test API Button */}
         <TestApiButton />
-        
-        {/* Network Diagnostics */}
-        <NetworkDiagnostics />
       </ScrollView>
       {renderDatePicker()}
       {renderGuestPicker()}
@@ -881,97 +798,6 @@ function TestApiButton() {
           <Text style={[styles.testResultText, { color: '#FF4444' }]}>
             Error: {testApiQuery.error.message}
           </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-function NetworkDiagnostics() {
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-  const [lastCheck, setLastCheck] = useState<Date | null>(null);
-
-  const checkBackendHealth = async () => {
-    setBackendStatus('checking');
-    try {
-      const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 'http://localhost:8081';
-      console.log('Checking backend health at:', baseUrl);
-      
-      const response = await fetch(`${baseUrl}/api`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        setBackendStatus('online');
-        console.log('Backend is online');
-      } else {
-        setBackendStatus('offline');
-        console.log('Backend returned error:', response.status);
-      }
-    } catch (error) {
-      setBackendStatus('offline');
-      console.error('Backend health check failed:', error);
-    }
-    setLastCheck(new Date());
-  };
-
-  React.useEffect(() => {
-    checkBackendHealth();
-  }, []);
-
-  const getStatusColor = () => {
-    switch (backendStatus) {
-      case 'online': return '#00AA6C';
-      case 'offline': return '#FF4444';
-      case 'checking': return '#FFA500';
-      default: return '#666';
-    }
-  };
-
-  const getStatusText = () => {
-    switch (backendStatus) {
-      case 'online': return 'Backend Online';
-      case 'offline': return 'Backend Offline';
-      case 'checking': return 'Checking...';
-      default: return 'Unknown';
-    }
-  };
-
-  return (
-    <View style={styles.diagnosticsContainer}>
-      <Text style={styles.diagnosticsTitle}>Network Diagnostics</Text>
-      
-      <View style={styles.statusRow}>
-        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
-        <Text style={styles.statusText}>{getStatusText()}</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={checkBackendHealth}
-          disabled={backendStatus === 'checking'}
-        >
-          <Text style={styles.refreshButtonText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {lastCheck && (
-        <Text style={styles.lastCheckText}>
-          Last checked: {lastCheck.toLocaleTimeString()}
-        </Text>
-      )}
-      
-      <Text style={styles.diagnosticsInfo}>
-        Backend URL: {process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 'http://localhost:8081'}
-      </Text>
-      
-      {backendStatus === 'offline' && (
-        <View style={styles.troubleshootContainer}>
-          <Text style={styles.troubleshootTitle}>Troubleshooting:</Text>
-          <Text style={styles.troubleshootItem}>• Ensure backend server is running</Text>
-          <Text style={styles.troubleshootItem}>• Check EXPO_PUBLIC_RORK_API_BASE_URL in .env.local</Text>
-          <Text style={styles.troubleshootItem}>• Verify network connectivity</Text>
         </View>
       )}
     </View>
@@ -1542,122 +1368,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: 52, // Position below the search input
-    left: 4,
-    right: 4,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
-    maxHeight: 200,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  suggestionIcon: {
-    marginRight: 12,
-  },
-  suggestionTextContainer: {
-    flex: 1,
-  },
-  suggestionText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  suggestionSubtext: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  diagnosticsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: 'white',
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  diagnosticsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-  },
-  refreshButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
-  },
-  refreshButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  lastCheckText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  diagnosticsInfo: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  troubleshootContainer: {
-    backgroundColor: '#fff3cd',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  troubleshootTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 6,
-  },
-  troubleshootItem: {
-    fontSize: 12,
-    color: '#856404',
-    marginBottom: 2,
   },
 });

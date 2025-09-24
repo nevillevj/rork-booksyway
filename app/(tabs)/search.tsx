@@ -121,7 +121,6 @@ export default function SearchScreen() {
   const [locationQuery, setLocationQuery] = useState('');
   const [filteredLocations, setFilteredLocations] = useState<LocationSuggestion[]>([]);
 
-
   const formatDate = (date: Date | null) => {
     if (!date) return '';
     return date.toLocaleDateString('en-US', {
@@ -225,25 +224,6 @@ export default function SearchScreen() {
     setShowDatePicker(null);
   };
 
-  // Cities autocomplete query
-  const citiesQuery = trpc.example.getCities.useQuery(
-    { 
-      query: locationQuery.trim(),
-      limit: 8
-    },
-    {
-      enabled: locationQuery.trim().length >= 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1, // Only retry once to avoid long delays
-      retryDelay: 1000, // 1 second delay
-    }
-  );
-  
-  // Log errors when they occur
-  if (citiesQuery.error) {
-    console.log('Cities query error:', citiesQuery.error.message);
-  }
-
   const handleLocationSearch = (query: string) => {
     // Input validation
     if (!query || typeof query !== 'string') {
@@ -255,7 +235,6 @@ export default function SearchScreen() {
     // Limit query length and sanitize
     const sanitizedQuery = query.trim().slice(0, 100);
     setLocationQuery(sanitizedQuery);
-
     
     if (sanitizedQuery === '') {
       setFilteredLocations([]);
@@ -387,17 +366,6 @@ export default function SearchScreen() {
         <View style={styles.popularSection}>
           <Text style={styles.sectionTitle}>API Connection Test</Text>
           <TestApiSection />
-          
-          {/* Network Status Info */}
-          <View style={styles.networkStatusCard}>
-            <Text style={styles.networkStatusTitle}>Network Status</Text>
-            <Text style={styles.networkStatusText}>
-              If you see &quot;Network error&quot; messages, please check:
-            </Text>
-            <Text style={styles.networkStatusBullet}>• Your internet connection</Text>
-            <Text style={styles.networkStatusBullet}>• Backend server is running on localhost:8081</Text>
-            <Text style={styles.networkStatusBullet}>• EXPO_PUBLIC_RORK_API_BASE_URL is set correctly</Text>
-          </View>
         </View>
         
         {/* Quick Test - Hotel Details */}
@@ -538,44 +506,6 @@ export default function SearchScreen() {
                 autoFocus
               />
             </View>
-            
-            {/* Live API suggestions */}
-            {locationQuery.trim().length >= 2 && (
-              <View style={styles.apiSuggestionsSection}>
-                <Text style={styles.locationListHeader}>Cities</Text>
-                {citiesQuery.isLoading && (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationItemName}>Searching...</Text>
-                  </View>
-                )}
-                {citiesQuery.data?.success && citiesQuery.data.data?.cities && citiesQuery.data.data.cities.length > 0 ? (
-                  citiesQuery.data.data.cities.map((city: any) => (
-                    <TouchableOpacity
-                      key={city.id}
-                      style={styles.locationItem}
-                      onPress={() => selectLocation({ id: city.id, name: city.displayName, type: 'city' })}
-                    >
-                      <View style={styles.locationIconContainer}>
-                        <MapPin size={16} color="#007AFF" />
-                      </View>
-                      <View style={styles.locationTextContent}>
-                        <Text style={styles.locationItemName}>{city.name}</Text>
-                        <Text style={styles.locationItemSubtitle}>{city.country}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                ) : citiesQuery.data?.success && citiesQuery.data.data?.cities?.length === 0 ? (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationItemName}>No cities found</Text>
-                  </View>
-                ) : citiesQuery.error ? (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationItemName}>Network error - using local suggestions</Text>
-                    <Text style={styles.locationItemSubtitle}>Check your internet connection</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
             
             <FlatList
               data={filteredLocations.length > 0 ? filteredLocations : POPULAR_LOCATIONS.slice(0, 8)}
@@ -1092,33 +1022,5 @@ const styles = StyleSheet.create({
   testApiDetails: {
     fontSize: 12,
     color: '#666',
-  },
-  apiSuggestionsSection: {
-    marginBottom: 20,
-  },
-  networkStatusCard: {
-    backgroundColor: '#fff3cd',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#ffeaa7',
-  },
-  networkStatusTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 8,
-  },
-  networkStatusText: {
-    fontSize: 14,
-    color: '#856404',
-    marginBottom: 8,
-  },
-  networkStatusBullet: {
-    fontSize: 14,
-    color: '#856404',
-    marginLeft: 8,
-    marginBottom: 4,
   },
 });

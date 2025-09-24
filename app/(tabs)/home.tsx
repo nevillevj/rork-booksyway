@@ -590,8 +590,15 @@ export default function HomeScreen() {
     {
       enabled: destination.trim().length >= 2,
       staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1, // Only retry once to avoid long delays
+      retryDelay: 1000, // 1 second delay
     }
   );
+  
+  // Log errors separately
+  if (citiesQuery.error) {
+    console.error('Cities query error:', citiesQuery.error.message);
+  }
 
   const handleDestinationChange = (text: string) => {
     // Input validation
@@ -817,6 +824,9 @@ export default function HomeScreen() {
         
         {/* Test API Button */}
         <TestApiButton />
+        
+        {/* Network Diagnostics */}
+        <NetworkDiagnostics />
       </ScrollView>
       {renderDatePicker()}
       {renderGuestPicker()}
@@ -867,6 +877,97 @@ function TestApiButton() {
           <Text style={[styles.testResultText, { color: '#FF4444' }]}>
             Error: {testApiQuery.error.message}
           </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function NetworkDiagnostics() {
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [lastCheck, setLastCheck] = useState<Date | null>(null);
+
+  const checkBackendHealth = async () => {
+    setBackendStatus('checking');
+    try {
+      const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 'http://localhost:8081';
+      console.log('Checking backend health at:', baseUrl);
+      
+      const response = await fetch(`${baseUrl}/api`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        setBackendStatus('online');
+        console.log('Backend is online');
+      } else {
+        setBackendStatus('offline');
+        console.log('Backend returned error:', response.status);
+      }
+    } catch (error) {
+      setBackendStatus('offline');
+      console.error('Backend health check failed:', error);
+    }
+    setLastCheck(new Date());
+  };
+
+  React.useEffect(() => {
+    checkBackendHealth();
+  }, []);
+
+  const getStatusColor = () => {
+    switch (backendStatus) {
+      case 'online': return '#00AA6C';
+      case 'offline': return '#FF4444';
+      case 'checking': return '#FFA500';
+      default: return '#666';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (backendStatus) {
+      case 'online': return 'Backend Online';
+      case 'offline': return 'Backend Offline';
+      case 'checking': return 'Checking...';
+      default: return 'Unknown';
+    }
+  };
+
+  return (
+    <View style={styles.diagnosticsContainer}>
+      <Text style={styles.diagnosticsTitle}>Network Diagnostics</Text>
+      
+      <View style={styles.statusRow}>
+        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
+        <Text style={styles.statusText}>{getStatusText()}</Text>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={checkBackendHealth}
+          disabled={backendStatus === 'checking'}
+        >
+          <Text style={styles.refreshButtonText}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {lastCheck && (
+        <Text style={styles.lastCheckText}>
+          Last checked: {lastCheck.toLocaleTimeString()}
+        </Text>
+      )}
+      
+      <Text style={styles.diagnosticsInfo}>
+        Backend URL: {process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 'http://localhost:8081'}
+      </Text>
+      
+      {backendStatus === 'offline' && (
+        <View style={styles.troubleshootContainer}>
+          <Text style={styles.troubleshootTitle}>Troubleshooting:</Text>
+          <Text style={styles.troubleshootItem}>• Ensure backend server is running</Text>
+          <Text style={styles.troubleshootItem}>• Check EXPO_PUBLIC_RORK_API_BASE_URL in .env.local</Text>
+          <Text style={styles.troubleshootItem}>• Verify network connectivity</Text>
         </View>
       )}
     </View>
@@ -1479,5 +1580,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  diagnosticsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    backgroundColor: 'white',
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  diagnosticsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  refreshButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#007AFF',
+    borderRadius: 6,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  lastCheckText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  diagnosticsInfo: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  troubleshootContainer: {
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  troubleshootTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 6,
+  },
+  troubleshootItem: {
+    fontSize: 12,
+    color: '#856404',
+    marginBottom: 2,
   },
 });

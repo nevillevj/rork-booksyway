@@ -46,29 +46,41 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies (for future use):', occupancies);
 
-      // Use the LiteAPI data/hotels endpoint with GET method like the working test
-      // Build query parameters for GET request
-      const queryParams = new URLSearchParams({
-        countryCode: 'US', // Default to US for now
-        cityName: input.cityCode, // Use cityCode as cityName for now
-        offset: '0',
-        limit: input.limit.toString()
-      });
+      // Use the correct LiteAPI search endpoint: POST /hotels/rates
+      // This is the actual search endpoint that accepts dates and location
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
       
-      const searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?${queryParams.toString()}`;
+      // Build the search request body according to LiteAPI docs
+      // Try different parameter combinations to find what works
+      const searchBody = {
+        checkin: input.checkin,
+        checkout: input.checkout,
+        occupancies: occupancies,
+        currency: input.currency,
+        guestNationality: input.guestNationality,
+        // Try multiple location parameters to see what works
+        cityName: input.cityCode,
+        city: input.cityCode,
+        destination: input.cityCode,
+        countryCode: 'US', // Default to US
+        limit: input.limit
+      };
       
       console.log('Request URL:', searchUrl);
-      console.log('Using GET request like the working test endpoint');
+      console.log('Request body:', JSON.stringify(searchBody, null, 2));
+      console.log('Using POST /hotels/rates endpoint for actual search');
       
       // LiteAPI uses simple X-API-Key header authentication
       const headers = {
         'X-API-Key': apiKey,
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       };
       
       const response = await fetch(searchUrl, {
-        method: 'GET',
-        headers
+        method: 'POST',
+        headers,
+        body: JSON.stringify(searchBody)
       });
 
       console.log('Response status:', response.status);

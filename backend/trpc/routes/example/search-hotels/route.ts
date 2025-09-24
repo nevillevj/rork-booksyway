@@ -80,35 +80,36 @@ export const searchHotelsProcedure = publicProcedure
         console.log('Could not fetch city ID, will use city name directly:', cityError);
       }
       
-      // Try using GET method with query parameters to avoid "unexpected end of file" issues
-      // Build query parameters for GET request
-      const queryParams = new URLSearchParams();
-      queryParams.append('checkin', input.checkin);
-      queryParams.append('checkout', input.checkout);
-      queryParams.append('currency', input.currency);
-      queryParams.append('guestNationality', input.guestNationality);
-      queryParams.append('limit', input.limit.toString());
-      
-      // Add occupancies as JSON string
-      queryParams.append('occupancies', JSON.stringify(occupancies));
+      // Build request body according to LiteAPI documentation
+      // Use POST method with JSON body as per LiteAPI specification
+      const requestBody: any = {
+        checkin: input.checkin,
+        checkout: input.checkout,
+        occupancies: occupancies,
+        currency: input.currency,
+        guestNationality: input.guestNationality,
+        limit: input.limit
+      };
       
       // Add location parameter - use cityId if available, otherwise cityName
       if (cityId) {
-        queryParams.append('cityId', cityId.toString());
+        requestBody.cityId = cityId;
       } else {
-        queryParams.append('cityName', input.cityCode);
+        requestBody.cityName = input.cityCode;
       }
       
-      // Use the correct LiteAPI endpoint for hotel search with GET method
-      const searchUrl = `https://api.liteapi.travel/v3.0/hotels/search?${queryParams.toString()}`;
+      // Use the correct LiteAPI endpoint for hotel search with POST method
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
       
       console.log('Request URL:', searchUrl);
-      console.log('Using GET /hotels/search endpoint for hotel search');
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('Using POST /hotels/search endpoint for hotel search');
       
-      // LiteAPI uses simple X-API-Key header authentication
+      // LiteAPI uses X-API-Key header authentication with JSON content type
       const headers = {
         'X-API-Key': apiKey,
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       };
       
       // Create timeout controller manually for better compatibility
@@ -116,8 +117,9 @@ export const searchHotelsProcedure = publicProcedure
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       const response = await fetch(searchUrl, {
-        method: 'GET',
+        method: 'POST',
         headers,
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
       

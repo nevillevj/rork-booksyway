@@ -207,13 +207,78 @@ export const searchHotelsProcedure = publicProcedure
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
         console.error('Failed to parse response:', responseText);
+        
+        // Return fallback data instead of error for parsing issues
+        const fallbackHotels = [
+          {
+            id: 'fallback_1',
+            name: `Sample Hotel in ${input.cityCode}`,
+            location: `${input.cityCode}, Sample Location`,
+            rating: 4.2,
+            reviewCount: 156,
+            price: 120,
+            originalPrice: 150,
+            imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+            amenities: ['wifi', 'parking', 'pool'],
+            type: 'hotel' as const,
+            distance: '1.2 km from center',
+            isFavorite: false,
+            isPopular: true,
+            hasFreeCancellation: true,
+            currency: input.currency
+          },
+          {
+            id: 'fallback_2',
+            name: `Premium Hotel ${input.cityCode}`,
+            location: `${input.cityCode}, Downtown`,
+            rating: 4.5,
+            reviewCount: 89,
+            price: 180,
+            imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=300&fit=crop&q=80',
+            amenities: ['wifi', 'gym', 'spa'],
+            type: 'hotel' as const,
+            distance: '0.8 km from center',
+            isFavorite: false,
+            isPopular: false,
+            hasFreeCancellation: true,
+            currency: input.currency
+          },
+          {
+            id: 'fallback_3',
+            name: `Business Hotel ${input.cityCode}`,
+            location: `${input.cityCode}, Business District`,
+            rating: 4.0,
+            reviewCount: 234,
+            price: 95,
+            imageUrl: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400&h=300&fit=crop&q=80',
+            amenities: ['wifi', 'parking', 'breakfast'],
+            type: 'hotel' as const,
+            distance: '2.1 km from center',
+            isFavorite: false,
+            isPopular: false,
+            hasFreeCancellation: true,
+            currency: input.currency
+          }
+        ];
+        
         return {
           success: false,
-          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`,
-          data: null,
-          debug: {
-            parseError: parseError instanceof Error ? parseError.message : String(parseError),
-            responseText: responseText.substring(0, 1000)
+          message: `Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}. Using sample data.`,
+          data: {
+            hotels: fallbackHotels,
+            totalCount: fallbackHotels.length,
+            searchParams: {
+              ...input,
+              occupancies: occupancies
+            },
+            timestamp: new Date().toISOString(),
+            fallback: true,
+            debug: {
+              parseError: parseError instanceof Error ? parseError.message : String(parseError),
+              responseText: responseText.substring(0, 1000),
+              requestUrl: searchUrl,
+              httpStatus: response.status
+            }
           }
         };
       }
@@ -310,14 +375,77 @@ export const searchHotelsProcedure = publicProcedure
       console.error('Error details:', error);
       console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
       
+      // Return fallback data for any unexpected errors
+      const fallbackHotels = [
+        {
+          id: 'fallback_1',
+          name: `Sample Hotel in ${input.cityCode}`,
+          location: `${input.cityCode}, Sample Location`,
+          rating: 4.2,
+          reviewCount: 156,
+          price: 120,
+          originalPrice: 150,
+          imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+          amenities: ['wifi', 'parking', 'pool'],
+          type: 'hotel' as const,
+          distance: '1.2 km from center',
+          isFavorite: false,
+          isPopular: true,
+          hasFreeCancellation: true,
+          currency: input.currency
+        },
+        {
+          id: 'fallback_2',
+          name: `Premium Hotel ${input.cityCode}`,
+          location: `${input.cityCode}, Downtown`,
+          rating: 4.5,
+          reviewCount: 89,
+          price: 180,
+          imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=300&fit=crop&q=80',
+          amenities: ['wifi', 'gym', 'spa'],
+          type: 'hotel' as const,
+          distance: '0.8 km from center',
+          isFavorite: false,
+          isPopular: false,
+          hasFreeCancellation: true,
+          currency: input.currency
+        },
+        {
+          id: 'fallback_3',
+          name: `Business Hotel ${input.cityCode}`,
+          location: `${input.cityCode}, Business District`,
+          rating: 4.0,
+          reviewCount: 234,
+          price: 95,
+          imageUrl: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400&h=300&fit=crop&q=80',
+          amenities: ['wifi', 'parking', 'breakfast'],
+          type: 'hotel' as const,
+          distance: '2.1 km from center',
+          isFavorite: false,
+          isPopular: false,
+          hasFreeCancellation: true,
+          currency: input.currency
+        }
+      ];
+      
       return {
         success: false,
-        message: `Search error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        data: null,
-        error: {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          type: error instanceof Error ? error.constructor.name : typeof error
+        message: `Search error: ${error instanceof Error ? error.message : 'Unknown error'}. Using sample data.`,
+        data: {
+          hotels: fallbackHotels,
+          totalCount: fallbackHotels.length,
+          searchParams: {
+            ...input
+          },
+          timestamp: new Date().toISOString(),
+          fallback: true,
+          debug: {
+            error: {
+              message: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+              type: error instanceof Error ? error.constructor.name : typeof error
+            }
+          }
         }
       };
     }

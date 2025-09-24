@@ -50,6 +50,7 @@ interface DateSelection {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [destination, setDestination] = useState('');
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [dateSelection, setDateSelection] = useState<DateSelection>({
     checkIn: null,
     checkOut: null,
@@ -122,7 +123,8 @@ export default function HomeScreen() {
   };
 
   const handleDurationSelect = (days: number) => {
-    if (typeof days !== 'number' || days <= 0) return;
+    // Input validation
+    if (typeof days !== 'number' || days <= 0 || days > 365) return;
     setSelectedDuration(days);
     if (dateSelection.checkIn) {
       const checkOut = new Date(dateSelection.checkIn);
@@ -579,6 +581,34 @@ export default function HomeScreen() {
     router.push(`/results?${params.toString()}`);
   };
 
+  // Cities autocomplete query
+  const citiesQuery = trpc.example.getCities.useQuery(
+    { 
+      query: destination.trim(),
+      limit: 8
+    },
+    {
+      enabled: destination.trim().length >= 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+
+  const handleDestinationChange = (text: string) => {
+    // Input validation
+    if (typeof text !== 'string') return;
+    const sanitizedText = text.slice(0, 100); // Limit length
+    setDestination(sanitizedText);
+    setShowDestinationSuggestions(sanitizedText.trim().length >= 2);
+  };
+
+  const handleDestinationSelect = (cityName: string) => {
+    // Input validation
+    if (!cityName || typeof cityName !== 'string') return;
+    const sanitizedCityName = cityName.trim().slice(0, 100);
+    setDestination(sanitizedCityName);
+    setShowDestinationSuggestions(false);
+  };
+
   const handleHotelPress = (hotel: FeaturedHotel) => {
     const checkIn = new Date();
     checkIn.setDate(checkIn.getDate() + 1);
@@ -689,10 +719,49 @@ export default function HomeScreen() {
                 style={styles.searchInput}
                 placeholder="Enter your destination"
                 value={destination}
-                onChangeText={setDestination}
+                onChangeText={handleDestinationChange}
                 placeholderTextColor="#999"
+                onFocus={() => destination.trim().length >= 2 && setShowDestinationSuggestions(true)}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow for selection
+                  setTimeout(() => setShowDestinationSuggestions(false), 200);
+                }}
               />
             </View>
+            
+            {/* Destination Suggestions */}
+            {showDestinationSuggestions && destination.trim().length >= 2 && (
+              <View style={styles.suggestionsContainer}>
+                {citiesQuery.isLoading && (
+                  <View style={styles.suggestionItem}>
+                    <Text style={styles.suggestionText}>Searching...</Text>
+                  </View>
+                )}
+                {citiesQuery.data?.success && citiesQuery.data.data?.cities && citiesQuery.data.data.cities.length > 0 ? (
+                  citiesQuery.data.data.cities.map((city: any) => (
+                    <TouchableOpacity
+                      key={city.id}
+                      style={styles.suggestionItem}
+                      onPress={() => handleDestinationSelect(city.displayName)}
+                    >
+                      <MapPin size={16} color="#666" style={styles.suggestionIcon} />
+                      <View style={styles.suggestionTextContainer}>
+                        <Text style={styles.suggestionText}>{city.name}</Text>
+                        <Text style={styles.suggestionSubtext}>{city.country}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : citiesQuery.data?.success && citiesQuery.data.data?.cities?.length === 0 ? (
+                  <View style={styles.suggestionItem}>
+                    <Text style={styles.suggestionText}>No cities found</Text>
+                  </View>
+                ) : citiesQuery.error ? (
+                  <View style={styles.suggestionItem}>
+                    <Text style={styles.suggestionText}>Error loading suggestions</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
             
             <TouchableOpacity 
               style={styles.dateInputContainer}
@@ -1368,5 +1437,47 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 52, // Position below the search input
+    left: 4,
+    right: 4,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 1000,
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionIcon: {
+    marginRight: 12,
+  },
+  suggestionTextContainer: {
+    flex: 1,
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  suggestionSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
   },
 });

@@ -120,6 +120,7 @@ export default function SearchScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationQuery, setLocationQuery] = useState('');
   const [filteredLocations, setFilteredLocations] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
 
   const formatDate = (date: Date | null) => {
     if (!date) return '';
@@ -224,20 +225,35 @@ export default function SearchScreen() {
     setShowDatePicker(null);
   };
 
+  // Cities autocomplete query
+  const citiesQuery = trpc.example.getCities.useQuery(
+    { 
+      query: locationQuery.trim(),
+      limit: 8
+    },
+    {
+      enabled: locationQuery.trim().length >= 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+
   const handleLocationSearch = (query: string) => {
     // Input validation
     if (!query || typeof query !== 'string') {
       setLocationQuery('');
       setFilteredLocations([]);
+      setShowLocationSuggestions(false);
       return;
     }
     
     // Limit query length and sanitize
     const sanitizedQuery = query.trim().slice(0, 100);
     setLocationQuery(sanitizedQuery);
+    setShowLocationSuggestions(sanitizedQuery.length >= 2);
     
     if (sanitizedQuery === '') {
       setFilteredLocations([]);
+      setShowLocationSuggestions(false);
       return;
     }
     
@@ -506,6 +522,43 @@ export default function SearchScreen() {
                 autoFocus
               />
             </View>
+            
+            {/* Live API suggestions */}
+            {locationQuery.trim().length >= 2 && (
+              <View style={styles.apiSuggestionsSection}>
+                <Text style={styles.locationListHeader}>Cities</Text>
+                {citiesQuery.isLoading && (
+                  <View style={styles.locationItem}>
+                    <Text style={styles.locationItemName}>Searching...</Text>
+                  </View>
+                )}
+                {citiesQuery.data?.success && citiesQuery.data.data?.cities && citiesQuery.data.data.cities.length > 0 ? (
+                  citiesQuery.data.data.cities.map((city: any) => (
+                    <TouchableOpacity
+                      key={city.id}
+                      style={styles.locationItem}
+                      onPress={() => selectLocation({ id: city.id, name: city.displayName, type: 'city' })}
+                    >
+                      <View style={styles.locationIconContainer}>
+                        <MapPin size={16} color="#007AFF" />
+                      </View>
+                      <View style={styles.locationTextContent}>
+                        <Text style={styles.locationItemName}>{city.name}</Text>
+                        <Text style={styles.locationItemSubtitle}>{city.country}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : citiesQuery.data?.success && citiesQuery.data.data?.cities?.length === 0 ? (
+                  <View style={styles.locationItem}>
+                    <Text style={styles.locationItemName}>No cities found</Text>
+                  </View>
+                ) : citiesQuery.error ? (
+                  <View style={styles.locationItem}>
+                    <Text style={styles.locationItemName}>Error loading suggestions</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
             
             <FlatList
               data={filteredLocations.length > 0 ? filteredLocations : POPULAR_LOCATIONS.slice(0, 8)}
@@ -1022,5 +1075,8 @@ const styles = StyleSheet.create({
   testApiDetails: {
     fontSize: 12,
     color: '#666',
+  },
+  apiSuggestionsSection: {
+    marginBottom: 20,
   },
 });

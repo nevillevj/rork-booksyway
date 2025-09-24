@@ -16,8 +16,10 @@ const getBaseUrl = () => {
   if (__DEV__) {
     const baseUrl = 'http://localhost:8081';
     console.log('🔧 Using development base URL:', baseUrl);
-    console.log('🚨 Make sure to start the backend server with: bun run server.ts');
-    console.log('🚨 Or run: ./start-server.sh');
+    console.log('🚨 Make sure to start the backend server with:');
+    console.log('   bun run start-backend.ts');
+    console.log('   OR bun run server.ts');
+    console.log('   OR ./start-server.sh');
     return baseUrl;
   }
 

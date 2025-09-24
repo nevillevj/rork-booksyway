@@ -1,73 +1,107 @@
-# Backend Server Setup
+# Backend Setup Guide
 
-## Quick Fix for tRPC Connection Issues
+## 🚀 Quick Fix for Connection Errors
 
-The error you're seeing (`TypeError: Failed to fetch`) means the backend server isn't running. Here's how to fix it:
+**The error "Cannot connect to backend server" means the backend is not running.**
 
-### Option 1: Start Backend Server (Recommended)
+Here's how to fix it:
 
-1. **Open a new terminal** in your project directory
-2. **Run the backend server:**
-   ```bash
-   bun run backend-server.ts
-   ```
-3. **Keep this terminal open** - the server needs to stay running
-4. **In another terminal**, start your React Native app as usual
-5. **Test the connection** in the Search tab of your app
+### 🔴 Step 1: Start the Backend Server
 
-### Option 2: Alternative Backend Start
+**Open a new terminal** and run:
 
-If the above doesn't work, try:
 ```bash
+# Option 1 (Recommended)
 bun run start-backend.ts
+
+# Option 2 (Alternative)
+bun run backend-server.ts
+
+# Option 3 (Shell script)
+./start-server.sh
 ```
 
-### What Should Happen
+### ✅ Step 2: Verify It's Working
 
-When the backend starts successfully, you should see:
+You should see this output:
 ```
-🚀 Starting backend server...
-📡 Server will run on: http://localhost:8081
-🔗 tRPC endpoint: http://localhost:8081/api/trpc
-✅ Backend server is now running!
+🚀 Starting backend server on port 8081...
+✅ Backend server running on http://localhost:8081
+✅ Backend health check: { status: "ok", message: "API is running" }
 ```
 
-### Testing the Connection
+### 📱 Step 3: Test in Your App
 
-1. Go to the **Search tab** in your app
-2. Scroll down to **"API Connection Test"**
-3. Click **"Test LiteAPI Connection"**
-4. You should see a success message instead of network errors
+1. Go to the **Home tab** in your app
+2. Scroll down to **"Network Diagnostics"**
+3. Click **"Refresh"** - it should show "Backend Online"
+4. Try the **"Test LiteAPI Connection"** button
 
-### Troubleshooting
+## 🔧 What the Backend Does
 
-If you still get connection errors:
+- **Health Check**: `http://localhost:8081/api`
+- **tRPC API**: `http://localhost:8081/api/trpc`
+- **City Search**: Autocomplete for destinations
+- **Hotel Search**: LiteAPI integration
+- **CORS**: Enabled for web and mobile
 
-1. **Check if port 8081 is free:**
+## 🚫 Common Issues & Solutions
+
+### "Port 8081 already in use"
+```bash
+# Use a different port
+PORT=8082 bun run start-backend.ts
+```
+Then update `.env.local`:
+```env
+EXPO_PUBLIC_RORK_API_BASE_URL=http://localhost:8082
+```
+
+### "Bun command not found"
+```bash
+# Install Bun first
+curl -fsSL https://bun.sh/install | bash
+```
+
+### Mobile device can't connect
+Replace `localhost` with your computer's IP address:
+```env
+EXPO_PUBLIC_RORK_API_BASE_URL=http://192.168.1.100:8081
+```
+
+## 📝 Development Workflow
+
+1. **Terminal 1**: Start backend
    ```bash
-   lsof -i :8081
+   bun run start-backend.ts
    ```
 
-2. **Try a different port:**
+2. **Terminal 2**: Start React Native app
    ```bash
-   PORT=8082 bun run backend-server.ts
-   ```
-   Then update your `.env.local`:
-   ```
-   EXPO_PUBLIC_RORK_API_BASE_URL=http://localhost:8082
+   bun start
    ```
 
-3. **Check your network:** Make sure you can access `http://localhost:8081/api` in your browser
+3. **Keep both running** - The app needs the backend!
 
-### Current Setup
+## 🔍 Quick Tests
 
-- **Backend:** Hono server with tRPC
-- **Frontend:** React Native with Expo
-- **API:** LiteAPI for hotel data
-- **Database:** None (using mock data and API calls)
+| Test | Command | Expected Result |
+|------|---------|----------------|
+| Backend Health | `curl http://localhost:8081/api` | `{"status":"ok","message":"API is running"}` |
+| Browser Test | Visit `http://localhost:8081/api` | JSON response |
+| App Diagnostics | Check "Network Diagnostics" in app | "Backend Online" |
 
-The backend provides:
-- `/api` - Health check
-- `/api/trpc` - tRPC endpoints
-- City search with LiteAPI integration
-- Hotel search functionality
+## 🆘 Environment Variables
+
+Your `.env.local` should have:
+```env
+# LiteAPI Key
+LiteAPI_Sandbox=sand_9dc1fa68-005d-4430-8b62-01c42e1cff27
+
+# Backend URL
+EXPO_PUBLIC_RORK_API_BASE_URL=http://localhost:8081
+```
+
+---
+
+**💡 Pro Tip**: Always start the backend first, then your React Native app. The app will show connection errors if the backend isn't running!

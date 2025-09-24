@@ -598,6 +598,10 @@ export default function HomeScreen() {
   // Log errors separately
   if (citiesQuery.error) {
     console.error('Cities query error:', citiesQuery.error.message);
+    // Check if it's a connection error
+    if (citiesQuery.error.message.includes('Cannot connect to backend server')) {
+      console.error('🚨 BACKEND NOT RUNNING! Start it with: bun run start-backend.ts');
+    }
   }
 
   const handleDestinationChange = (text: string) => {

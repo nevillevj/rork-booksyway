@@ -238,6 +238,11 @@ export default function SearchScreen() {
       retryDelay: 1000, // 1 second delay
     }
   );
+  
+  // Log errors when they occur
+  if (citiesQuery.error) {
+    console.log('Cities query error:', citiesQuery.error.message);
+  }
 
   const handleLocationSearch = (query: string) => {
     // Input validation

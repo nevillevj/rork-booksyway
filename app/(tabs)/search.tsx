@@ -22,6 +22,7 @@ import {
   Plus,
   Minus,
   X,
+  Bookmark,
 } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
 
@@ -268,10 +269,20 @@ export default function SearchScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Find your perfect stay</Text>
-          <Text style={styles.headerSubtitle}>
-            Discover amazing places to stay around the world
-          </Text>
+          <View style={styles.headerContent}>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>Find your perfect stay</Text>
+              <Text style={styles.headerSubtitle}>
+                Discover amazing places to stay around the world
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.savedButton}
+              onPress={() => router.push('/(tabs)/favorites')}
+            >
+              <Bookmark size={24} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Card */}
@@ -603,6 +614,24 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingTop: 10,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerText: {
+    flex: 1,
+    marginRight: 16,
+  },
+  savedButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f0f8ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
   headerTitle: {
     fontSize: 28,

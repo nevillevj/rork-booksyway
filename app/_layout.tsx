@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StorageProvider } from "@/contexts/StorageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
 import { trpc, trpcClient } from "@/lib/trpc";
 
@@ -40,9 +41,11 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <StorageProvider>
           <AuthProvider>
-            <GestureHandlerRootView>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
+            <FavoritesProvider>
+              <GestureHandlerRootView>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </FavoritesProvider>
           </AuthProvider>
         </StorageProvider>
       </QueryClientProvider>

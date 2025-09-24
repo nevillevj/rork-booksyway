@@ -27,15 +27,16 @@ import {
   Award,
 } from 'lucide-react-native';
 import { MOCK_ACCOMMODATIONS, AMENITY_ICONS, ATTRACTION_ICONS } from '@/constants/mockData';
+import { useFavorites } from '@/contexts/FavoritesContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function AccommodationDetailsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
 
@@ -100,6 +101,25 @@ export default function AccommodationDetailsScreen() {
         }
       }
     }
+  };
+
+  const handleToggleFavorite = async () => {
+    const favoriteItem = {
+      id: accommodation.id,
+      name: accommodation.name,
+      location: accommodation.location,
+      rating: accommodation.rating,
+      reviewCount: accommodation.reviewCount,
+      price: accommodation.price,
+      originalPrice: accommodation.originalPrice,
+      imageUrl: accommodation.images[0],
+      type: accommodation.type,
+      distance: accommodation.distance,
+      amenities: accommodation.amenities || [],
+      hasFreeCancellation: accommodation.hasFreeCancellation,
+    };
+    
+    await toggleFavorite(favoriteItem);
   };
 
   const handleBookNow = () => {
@@ -167,12 +187,12 @@ export default function AccommodationDetailsScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => setIsFavorite(!isFavorite)}
+              onPress={() => handleToggleFavorite()}
             >
               <Heart
                 size={20}
-                color={isFavorite ? '#FF6B6B' : 'white'}
-                fill={isFavorite ? '#FF6B6B' : 'transparent'}
+                color={isFavorite(accommodation.id) ? '#FF6B6B' : 'white'}
+                fill={isFavorite(accommodation.id) ? '#FF6B6B' : 'transparent'}
               />
             </TouchableOpacity>
           </View>

@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
+import { useFavorites } from '@/contexts/FavoritesContext';
 
 interface Accommodation {
   id: string;
@@ -71,7 +72,7 @@ const AMENITY_ICONS: Record<string, any> = {
 export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'price' | 'rating' | 'distance'>('price');
   const [filters, setFilters] = useState<FilterOptions>({
@@ -243,16 +244,28 @@ export default function ResultsScreen() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const toggleFavorite = (id: string) => {
-    setFavorites(prev => 
-      prev.includes(id) 
-        ? prev.filter(fav => fav !== id)
-        : [...prev, id]
-    );
+  const handleToggleFavorite = async (item: any) => {
+    const favoriteItem = {
+      id: item.id,
+      name: item.name,
+      location: item.location,
+      rating: item.rating,
+      reviewCount: item.reviewCount,
+      price: item.price,
+      originalPrice: item.originalPrice,
+      imageUrl: item.imageUrl,
+      type: item.type,
+      distance: item.distance,
+      amenities: item.amenities || [],
+      isPopular: item.isPopular,
+      hasFreeCancellation: item.hasFreeCancellation,
+    };
+    
+    await toggleFavorite(favoriteItem);
   };
 
   const renderAccommodationCard = ({ item }: { item: Accommodation }) => {
-    const isFavorite = favorites.includes(item.id);
+    const isItemFavorite = isFavorite(item.id);
     const nights = calculateNights();
     
     const handleCardPress = () => {
@@ -274,12 +287,12 @@ export default function ResultsScreen() {
           <Image source={{ uri: item.imageUrl }} style={styles.accommodationImage} />
           <TouchableOpacity 
             style={styles.favoriteButton}
-            onPress={() => toggleFavorite(item.id)}
+            onPress={() => handleToggleFavorite(item)}
           >
             <Heart 
               size={20} 
-              color={isFavorite ? '#FF6B6B' : '#fff'} 
-              fill={isFavorite ? '#FF6B6B' : 'transparent'}
+              color={isItemFavorite ? '#FF6B6B' : '#fff'} 
+              fill={isItemFavorite ? '#FF6B6B' : 'transparent'}
             />
           </TouchableOpacity>
           {item.isPopular && (

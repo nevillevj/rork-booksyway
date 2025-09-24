@@ -71,22 +71,22 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Try the correct LiteAPI endpoint with proper error handling
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
-      
-      console.log('Request URL:', searchUrl);
-
-      const requestBody = {
+      // Try GET request with query parameters instead of POST
+      const queryParams = new URLSearchParams({
         checkin: input.checkin,
         checkout: input.checkout,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        occupancies: occupancies,
         cityName: getCityNameFromCode(input.cityCode),
-        countryCode: 'US'
-      };
+        adults: input.adults.toString(),
+        children: input.children.toString(),
+        rooms: input.rooms.toString()
+      });
       
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      const searchUrl = `https://api.liteapi.travel/v3.0/hotels/rates?${queryParams.toString()}`;
+      
+      console.log('Request URL:', searchUrl);
+      console.log('Query parameters:', Object.fromEntries(queryParams));
       
       // Add timeout and better error handling
       const controller = new AbortController();
@@ -95,14 +95,12 @@ export const searchHotelsProcedure = publicProcedure
       let response: Response;
       try {
         response = await fetch(searchUrl, {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'X-API-Key': apiKey,
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
             'User-Agent': 'BookingApp/1.0'
           },
-          body: JSON.stringify(requestBody),
           signal: controller.signal
         });
       } catch (fetchError) {

@@ -46,25 +46,74 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies (for future use):', occupancies);
 
-      // Use the correct LiteAPI search endpoint: POST /hotels/rates
-      // This is the actual search endpoint that accepts dates and location
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
+      // First, try to get city ID from the cities endpoint
+      let cityId = null;
+      try {
+        const citiesUrl = 'https://api.liteapi.travel/v3.0/data/cities';
+        const citiesResponse = await fetch(citiesUrl, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': apiKey,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (citiesResponse.ok) {
+          const citiesText = await citiesResponse.text();
+          if (citiesText && citiesText.length > 0) {
+            const citiesData = JSON.parse(citiesText);
+            const cities = citiesData.data || citiesData || [];
+            
+            // Find city by name (case insensitive)
+            const matchingCity = cities.find((city: any) => 
+              city.name?.toLowerCase().includes(input.cityCode.toLowerCase()) ||
+              city.city?.toLowerCase().includes(input.cityCode.toLowerCase())
+            );
+            
+            if (matchingCity) {
+              cityId = matchingCity.id || matchingCity.cityId;
+              console.log(`Found city ID: ${cityId} for ${input.cityCode}`);
+            }
+          }
+        }
+      } catch (cityError) {
+        console.log('Could not fetch city ID, will use city name directly:', cityError);
+      }
       
-      // Build the search request body according to LiteAPI docs
-      // Try different parameter combinations to find what works
-      const searchBody = {
+      // Try different endpoints based on LiteAPI documentation
+      // First try the hotels search endpoint
+      let searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      
+      // If that doesn't work, we'll fall back to rates endpoint
+      if (!cityId && input.cityCode) {
+        // For city name searches, try the rates endpoint
+        searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
+      }
+      
+      // Build the search request body with the correct format
+      // Try different parameter combinations based on endpoint
+      const searchBody: any = {
         checkin: input.checkin,
         checkout: input.checkout,
         occupancies: occupancies,
         currency: input.currency,
-        guestNationality: input.guestNationality,
-        // Try multiple location parameters to see what works
-        cityName: input.cityCode,
-        city: input.cityCode,
-        destination: input.cityCode,
-        countryCode: 'US', // Default to US
-        limit: input.limit
+        guestNationality: input.guestNationality
       };
+      
+      // Add location parameters based on what we have
+      if (cityId) {
+        searchBody.cityId = cityId;
+      } else {
+        // Try multiple location parameter names
+        searchBody.cityName = input.cityCode;
+        searchBody.city = input.cityCode;
+        searchBody.destination = input.cityCode;
+      }
+      
+      // Add limit if supported
+      if (searchUrl.includes('search')) {
+        searchBody.limit = input.limit;
+      }
       
       console.log('Request URL:', searchUrl);
       console.log('Request body:', JSON.stringify(searchBody, null, 2));
@@ -77,31 +126,56 @@ export const searchHotelsProcedure = publicProcedure
         'Content-Type': 'application/json'
       };
       
+      // Create timeout controller manually for better compatibility
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(searchBody)
+        body: JSON.stringify(searchBody),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Get response text first to debug parsing issues
+      // Get response text with simpler approach to avoid "unexpected end of file" errors
       let responseText = '';
       try {
+        // Check if response has content-length header
+        const contentLength = response.headers.get('content-length');
+        console.log('Response content-length:', contentLength);
+        
+        // Use simple text() method instead of stream reading
         responseText = await response.text();
         console.log('Raw response length:', responseText.length);
         console.log('Raw response preview:', responseText.substring(0, 500));
+        
+        if (responseText.length > 100) {
+          console.log('Raw response ending:', responseText.substring(Math.max(0, responseText.length - 100)));
+        }
+        
       } catch (textError) {
         console.error('Failed to read response text:', textError);
+        
+        // If text() fails, try to get some debug info
+        const errorMessage = textError instanceof Error ? textError.message : String(textError);
+        console.error('Text error details:', errorMessage);
+        
         return {
           success: false,
-          message: 'Failed to read API response',
+          message: `Failed to read API response: ${errorMessage}`,
           data: null,
           debug: {
-            textError: textError instanceof Error ? textError.message : String(textError),
+            textError: errorMessage,
             requestUrl: searchUrl,
-            httpStatus: response.status
+            httpStatus: response.status,
+            headers: Object.fromEntries(response.headers.entries()),
+            responseBodyExists: !!response.body,
+            responseOk: response.ok
           }
         };
       }

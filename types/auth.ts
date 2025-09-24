@@ -42,9 +42,18 @@ export interface SignUpData {
   agreeToMarketing: boolean;
 }
 
+export interface GoogleAuthData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  profileImage?: string;
+  googleId: string;
+}
+
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   deleteAccount: () => Promise<void>;

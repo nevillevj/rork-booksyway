@@ -22,7 +22,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const { login } = useAuth();
+  const { login, signInWithGoogle } = useAuth();
 
   const handleLogin = async (): Promise<void> => {
     if (!email.trim() || !password.trim()) {
@@ -41,6 +41,20 @@ export default function LoginScreen() {
       router.replace('/(tabs)/home');
     } catch (error) {
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      if (error instanceof Error && error.message !== 'Google authentication was cancelled') {
+        Alert.alert('Google Sign In Failed', error.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -123,8 +137,15 @@ export default function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            <TouchableOpacity style={styles.socialButton} testID="google-login">
-              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            <TouchableOpacity 
+              style={styles.socialButton} 
+              testID="google-login"
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
+            >
+              <Text style={styles.socialButtonText}>
+                {isLoading ? 'Connecting...' : 'Continue with Google'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.socialButton} testID="apple-login">

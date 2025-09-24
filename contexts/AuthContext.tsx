@@ -1,7 +1,12 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AuthContextType, User, LoginCredentials, SignUpData } from '@/types/auth';
+import { Platform } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import { AuthContextType, User, LoginCredentials, SignUpData, GoogleAuthData } from '@/types/auth';
 import { useStorage } from '@/contexts/StorageContext';
+
+WebBrowser.maybeCompleteAuthSession();
 
 // GDPR compliant storage keys
 const STORAGE_KEYS = {
@@ -58,6 +63,39 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
       };
     },
     
+    async signInWithGoogle(googleData: GoogleAuthData): Promise<{ user: User; token: string; refreshToken: string }> {
+      if (!googleData?.email?.trim() || !googleData?.firstName?.trim() || !googleData?.lastName?.trim()) {
+        throw new Error('Invalid Google authentication data');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const user: User = {
+        id: googleData.googleId,
+        email: googleData.email,
+        firstName: googleData.firstName,
+        lastName: googleData.lastName,
+        profileImage: googleData.profileImage,
+        preferences: {
+          currency: 'USD',
+          language: 'en',
+          notifications: {
+            email: true,
+            push: true,
+            sms: false,
+          },
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      return {
+        user,
+        token: 'mock_google_jwt_token',
+        refreshToken: 'mock_google_refresh_token',
+      };
+    },
+    
     async signUp(data: SignUpData): Promise<{ user: User; token: string; refreshToken: string }> {
       if (!data?.email?.trim() || !data?.password?.trim() || !data?.firstName?.trim() || !data?.lastName?.trim()) {
         throw new Error('Invalid signup data');
@@ -111,6 +149,23 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }), [storage]);
+
+  const googleAuthConfig = useMemo(() => {
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'com.yourcompany.yourapp',
+    });
+
+    return {
+      clientId: Platform.select({
+        ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'your-ios-client-id.googleusercontent.com',
+        android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || 'your-android-client-id.googleusercontent.com',
+        web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'your-web-client-id.googleusercontent.com',
+        default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'your-web-client-id.googleusercontent.com',
+      }),
+      scopes: ['openid', 'profile', 'email'],
+      redirectUri,
+    };
+  }, []);
 
   const initializeAuth = useCallback(async (): Promise<void> => {
     try {
@@ -185,6 +240,81 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
     }
   }, [authAPI, storage]);
 
+  const signInWithGoogle = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      
+      const request = new AuthSession.AuthRequest({
+        clientId: googleAuthConfig.clientId,
+        scopes: googleAuthConfig.scopes,
+        redirectUri: googleAuthConfig.redirectUri,
+        responseType: AuthSession.ResponseType.Code,
+      });
+
+      const result = await request.promptAsync({
+        authorizationEndpoint: 'https://accounts.google.com/oauth/authorize',
+      });
+
+      if (result.type === 'success' && result.params.code) {
+        const tokenResponse = await AuthSession.exchangeCodeAsync(
+          {
+            clientId: googleAuthConfig.clientId,
+            code: result.params.code,
+            redirectUri: googleAuthConfig.redirectUri,
+            extraParams: {
+              code_verifier: request.codeVerifier || '',
+            },
+          },
+          {
+            tokenEndpoint: 'https://oauth2.googleapis.com/token',
+          }
+        );
+
+        if (tokenResponse.accessToken) {
+          const userInfoResponse = await fetch(
+            `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenResponse.accessToken}`
+          );
+          const userInfo = await userInfoResponse.json();
+
+          const googleData: GoogleAuthData = {
+            email: userInfo.email,
+            firstName: userInfo.given_name || '',
+            lastName: userInfo.family_name || '',
+            profileImage: userInfo.picture,
+            googleId: userInfo.id,
+          };
+
+          const { user, token, refreshToken } = await authAPI.signInWithGoogle(googleData);
+          
+          await storage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+          await storage.setSecureItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+          
+          const consentPreferences = {
+            terms: true,
+            privacy: true,
+            marketing: false,
+            timestamp: new Date().toISOString(),
+          };
+          await storage.setItem(STORAGE_KEYS.CONSENT_PREFERENCES, JSON.stringify(consentPreferences));
+          
+          setUser(user);
+        } else {
+          throw new Error('Failed to get access token from Google');
+        }
+      } else if (result.type === 'error') {
+        throw new Error(result.params?.error_description || 'Google authentication failed');
+      } else {
+        throw new Error('Google authentication was cancelled');
+      }
+    } catch (error) {
+      console.error('Google sign in failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authAPI, storage, googleAuthConfig]);
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
@@ -254,9 +384,10 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
     hasCompletedOnboarding,
     login,
     signUp,
+    signInWithGoogle,
     logout,
     updateProfile,
     deleteAccount,
     completeOnboarding,
-  }), [user, isAuthenticated, isLoading, hasCompletedOnboarding, login, signUp, logout, updateProfile, deleteAccount, completeOnboarding]);
+  }), [user, isAuthenticated, isLoading, hasCompletedOnboarding, login, signUp, signInWithGoogle, logout, updateProfile, deleteAccount, completeOnboarding]);
 });

@@ -33,7 +33,7 @@ export default function SignUpScreen() {
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const handleInputChange = (field: string, value: string): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -90,6 +90,20 @@ export default function SignUpScreen() {
       router.replace('/(tabs)/home');
     } catch (error) {
       Alert.alert('Sign Up Failed', error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      if (error instanceof Error && error.message !== 'Google authentication was cancelled') {
+        Alert.alert('Google Sign In Failed', error.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -282,6 +296,23 @@ export default function SignUpScreen() {
                 {isLoading ? 'Creating Account...' : 'Create Account'}
               </Text>
             </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.socialButton} 
+              testID="google-signup"
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
+            >
+              <Text style={styles.socialButtonText}>
+                {isLoading ? 'Connecting...' : 'Continue with Google'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
@@ -411,6 +442,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e1e5e9',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: Colors.light.tabIconDefault,
+    fontSize: 14,
+  },
+  socialButton: {
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  socialButtonText: {
+    color: '#1a1a1a',
+    fontSize: 16,
+    fontWeight: '500' as const,
   },
   footer: {
     alignItems: 'center',

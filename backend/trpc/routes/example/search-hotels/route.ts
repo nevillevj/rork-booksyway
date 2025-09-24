@@ -80,18 +80,11 @@ export const searchHotelsProcedure = publicProcedure
         console.log('Could not fetch city ID, will use city name directly:', cityError);
       }
       
-      // Try different endpoints based on LiteAPI documentation
-      // First try the hotels search endpoint
-      let searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      // Use the correct LiteAPI endpoint for hotel rates search
+      // According to LiteAPI docs, use /hotels/rates for searching hotels
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
       
-      // If that doesn't work, we'll fall back to rates endpoint
-      if (!cityId && input.cityCode) {
-        // For city name searches, try the rates endpoint
-        searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
-      }
-      
-      // Build the search request body with the correct format
-      // Try different parameter combinations based on endpoint
+      // Build the search request body according to LiteAPI specification
       const searchBody: any = {
         checkin: input.checkin,
         checkout: input.checkout,
@@ -100,19 +93,11 @@ export const searchHotelsProcedure = publicProcedure
         guestNationality: input.guestNationality
       };
       
-      // Add location parameters based on what we have
+      // Add location parameter - use cityId if available, otherwise cityName
       if (cityId) {
         searchBody.cityId = cityId;
       } else {
-        // Try multiple location parameter names
         searchBody.cityName = input.cityCode;
-        searchBody.city = input.cityCode;
-        searchBody.destination = input.cityCode;
-      }
-      
-      // Add limit if supported
-      if (searchUrl.includes('search')) {
-        searchBody.limit = input.limit;
       }
       
       console.log('Request URL:', searchUrl);
@@ -142,15 +127,24 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Get response text with simpler approach to avoid "unexpected end of file" errors
+      // Handle response with better error handling for "unexpected end of file"
       let responseText = '';
       try {
         // Check if response has content-length header
         const contentLength = response.headers.get('content-length');
         console.log('Response content-length:', contentLength);
         
-        // Use simple text() method instead of stream reading
-        responseText = await response.text();
+        // Clone response to avoid "body already read" errors
+        const responseClone = response.clone();
+        
+        // Try to read as text with timeout
+        const textPromise = responseClone.text();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Response read timeout')), 10000)
+        );
+        
+        responseText = await Promise.race([textPromise, timeoutPromise]) as string;
+        
         console.log('Raw response length:', responseText.length);
         console.log('Raw response preview:', responseText.substring(0, 500));
         
@@ -161,23 +155,32 @@ export const searchHotelsProcedure = publicProcedure
       } catch (textError) {
         console.error('Failed to read response text:', textError);
         
-        // If text() fails, try to get some debug info
-        const errorMessage = textError instanceof Error ? textError.message : String(textError);
-        console.error('Text error details:', errorMessage);
-        
-        return {
-          success: false,
-          message: `Failed to read API response: ${errorMessage}`,
-          data: null,
-          debug: {
-            textError: errorMessage,
-            requestUrl: searchUrl,
-            httpStatus: response.status,
-            headers: Object.fromEntries(response.headers.entries()),
-            responseBodyExists: !!response.body,
-            responseOk: response.ok
-          }
-        };
+        // Try alternative method to read response
+        try {
+          const buffer = await response.arrayBuffer();
+          responseText = new TextDecoder().decode(buffer);
+          console.log('Successfully read response using arrayBuffer method');
+        } catch (bufferError) {
+          console.error('Failed to read response with arrayBuffer:', bufferError);
+          
+          const errorMessage = textError instanceof Error ? textError.message : String(textError);
+          console.error('Text error details:', errorMessage);
+          
+          return {
+            success: false,
+            message: `Failed to read API response: ${errorMessage}`,
+            data: null,
+            debug: {
+              textError: errorMessage,
+              bufferError: bufferError instanceof Error ? bufferError.message : String(bufferError),
+              requestUrl: searchUrl,
+              httpStatus: response.status,
+              headers: Object.fromEntries(response.headers.entries()),
+              responseBodyExists: !!response.body,
+              responseOk: response.ok
+            }
+          };
+        }
       }
       
       // Check if response is empty or truncated

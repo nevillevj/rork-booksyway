@@ -132,11 +132,29 @@ export default function ResultsScreen() {
     const locationName = params.location as string;
     const cityCode = params.cityCode as string || getCityCode(locationName);
     
+    // Parse dates more carefully
+    let checkIn: Date | null = null;
+    let checkOut: Date | null = null;
+    
+    if (params.checkIn) {
+      const checkInDate = new Date(params.checkIn as string);
+      if (!isNaN(checkInDate.getTime())) {
+        checkIn = checkInDate;
+      }
+    }
+    
+    if (params.checkOut) {
+      const checkOutDate = new Date(params.checkOut as string);
+      if (!isNaN(checkOutDate.getTime())) {
+        checkOut = checkOutDate;
+      }
+    }
+    
     return {
       location: locationName,
       cityCode: cityCode,
-      checkIn: params.checkIn ? new Date(params.checkIn as string) : null,
-      checkOut: params.checkOut ? new Date(params.checkOut as string) : null,
+      checkIn: checkIn,
+      checkOut: checkOut,
       adults: parseInt(params.adults as string) || 2,
       children: parseInt(params.children as string) || 0,
       rooms: parseInt(params.rooms as string) || 1,
@@ -146,7 +164,10 @@ export default function ResultsScreen() {
   // Format dates for API call
   const formatDateForAPI = (date: Date | null) => {
     if (!date) return '';
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Handle both Date objects and ISO strings
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return '';
+    return dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
   };
 
   // Search hotels using tRPC
@@ -160,10 +181,8 @@ export default function ResultsScreen() {
       rooms: searchParams?.rooms || 1,
     },
     {
-      enabled: !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut && 
-               formatDateForAPI(searchParams?.checkIn || null) !== '' && 
-               formatDateForAPI(searchParams?.checkOut || null) !== '',
-      retry: 1,
+      enabled: !!searchParams && !!searchParams.checkIn && !!searchParams.checkOut,
+      retry: 2,
       refetchOnWindowFocus: false,
       refetchOnMount: true,
     }

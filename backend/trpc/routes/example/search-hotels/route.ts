@@ -13,33 +13,7 @@ const searchHotelsSchema = z.object({
   limit: z.number().min(1).max(100).default(20)
 });
 
-// Helper function to convert city codes to city names
-const getCityNameFromCode = (cityCode: string): string => {
-  const codeToNameMapping: Record<string, string> = {
-    'NYC': 'New York',
-    'PAR': 'Paris',
-    'LON': 'London',
-    'TYO': 'Tokyo',
-    'DXB': 'Dubai',
-    'BCN': 'Barcelona',
-    'ROM': 'Rome',
-    'AMS': 'Amsterdam',
-    'SYD': 'Sydney',
-    'BKK': 'Bangkok',
-    'LAX': 'Los Angeles',
-    'SFO': 'San Francisco',
-    'MIA': 'Miami',
-    'CHI': 'Chicago',
-    'BOS': 'Boston',
-    'LAS': 'Las Vegas',
-    'BER': 'Berlin',
-    'MAD': 'Madrid',
-    'VIE': 'Vienna',
-    'PRG': 'Prague'
-  };
-  
-  return codeToNameMapping[cityCode] || cityCode;
-};
+
 
 export const searchHotelsProcedure = publicProcedure
   .input(searchHotelsSchema)
@@ -72,36 +46,32 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - v3.0/data/hotels endpoint
-      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      // Use the correct LiteAPI endpoint - v3.0/hotels/search endpoint
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
       
       console.log('Request URL:', searchUrl);
 
-      // Build query parameters for GET request according to LiteAPI docs
-      // Try different parameter names based on documentation
-      const queryParams = new URLSearchParams({
-        countryCode: 'US', // Default to US for now
-        cityName: getCityNameFromCode(input.cityCode),
+      // Build the request body for POST request according to LiteAPI docs
+      const requestBody = {
+        cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
+        occupancies: occupancies,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        adults: input.adults.toString(),
-        children: input.children.toString(),
-        rooms: input.rooms.toString()
-      });
+        limit: input.limit
+      };
       
-      // Skip occupancies array for now - use simple adults/children params
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
-      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
-      console.log('Full request URL:', fullUrl);
-      
-      const response = await fetch(fullUrl, {
-        method: 'GET',
+      const response = await fetch(searchUrl, {
+        method: 'POST',
         headers: {
           'X-API-Key': apiKey,
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
       console.log('Response status:', response.status);

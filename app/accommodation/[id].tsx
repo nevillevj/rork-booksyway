@@ -11,7 +11,6 @@ import {
   Share,
   Platform,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
@@ -408,31 +407,9 @@ export default function AccommodationDetailsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>
             <Text style={styles.fullAddress}>{accommodation.fullAddress}</Text>
-            <View style={styles.mapContainer}>
-              <MapView
-                style={styles.map}
-                initialRegion={{
-                  latitude: accommodation.coordinates.latitude,
-                  longitude: accommodation.coordinates.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                showsUserLocation={true}
-                showsMyLocationButton={true}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: accommodation.coordinates.latitude,
-                    longitude: accommodation.coordinates.longitude,
-                  }}
-                  title={accommodation.name}
-                  description={accommodation.location}
-                >
-                  <View style={styles.customMarker}>
-                    <MapPin size={24} color="#007AFF" fill="#007AFF" />
-                  </View>
-                </Marker>
-              </MapView>
+            <View style={styles.mapPlaceholder}>
+              <MapPin size={40} color="#007AFF" />
+              <Text style={styles.mapPlaceholderText}>Map view coming soon</Text>
             </View>
           </View>
         </View>
@@ -764,29 +741,17 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
   },
-  mapContainer: {
+  mapPlaceholder: {
     height: 200,
-    borderRadius: 12,
-    overflow: 'hidden',
     backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  map: {
-    flex: 1,
-  },
-  customMarker: {
-    backgroundColor: 'white',
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  mapPlaceholderText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
   },
   bookingBar: {
     flexDirection: 'row',

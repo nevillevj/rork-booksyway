@@ -72,36 +72,34 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - v3.0/data/hotels endpoint
-      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      // Use the correct LiteAPI search endpoint - v3.0/hotels/search
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
       
       console.log('Request URL:', searchUrl);
 
-      // Build query parameters for GET request according to LiteAPI docs
-      // Try different parameter names based on documentation
-      const queryParams = new URLSearchParams({
-        countryCode: 'US', // Default to US for now
+      // Build the request body according to LiteAPI documentation
+      // Try different parameter combinations based on API docs
+      const requestBody = {
         cityName: getCityNameFromCode(input.cityCode),
+        countryCode: 'US', // Add country code as it might be required
         checkin: input.checkin,
         checkout: input.checkout,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        adults: input.adults.toString(),
-        children: input.children.toString(),
-        rooms: input.rooms.toString()
-      });
+        occupancies: occupancies,
+        limit: input.limit
+      };
       
-      // Skip occupancies array for now - use simple adults/children params
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
-      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
-      console.log('Full request URL:', fullUrl);
-      
-      const response = await fetch(fullUrl, {
-        method: 'GET',
+      const response = await fetch(searchUrl, {
+        method: 'POST',
         headers: {
           'X-API-Key': apiKey,
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
       console.log('Response status:', response.status);
@@ -215,18 +213,43 @@ export const searchHotelsProcedure = publicProcedure
       
       let data;
       try {
+        // Check if response looks like valid JSON before parsing
+        const trimmedResponse = responseText.trim();
+        if (!trimmedResponse.startsWith('{') && !trimmedResponse.startsWith('[')) {
+          console.error('Response does not appear to be JSON:', trimmedResponse.substring(0, 200));
+          return {
+            success: false,
+            message: 'API returned non-JSON response',
+            data: null,
+            debug: {
+              responseText: trimmedResponse.substring(0, 1000),
+              responseLength: trimmedResponse.length,
+              startsWithBrace: trimmedResponse.startsWith('{'),
+              startsWithBracket: trimmedResponse.startsWith('[')
+            }
+          };
+        }
+        
         data = JSON.parse(responseText);
-        console.log('Parsed API response:', JSON.stringify(data, null, 2));
+        console.log('Parsed API response keys:', Object.keys(data));
+        console.log('Parsed API response sample:', JSON.stringify(data, null, 2).substring(0, 1000));
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
-        console.error('Failed to parse response:', responseText);
+        console.error('Failed to parse response:', responseText.substring(0, 500));
+        
+        // Check if it's a truncated response issue
+        const isTruncated = responseText.length > 0 && !responseText.trim().endsWith('}') && !responseText.trim().endsWith(']');
+        
         return {
           success: false,
-          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`,
+          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}${isTruncated ? ' (response may be truncated)' : ''}`,
           data: null,
           debug: {
             parseError: parseError instanceof Error ? parseError.message : String(parseError),
-            responseText: responseText.substring(0, 1000)
+            responseText: responseText.substring(0, 1000),
+            responseLength: responseText.length,
+            isTruncated: isTruncated,
+            lastChars: responseText.slice(-50)
           }
         };
       }

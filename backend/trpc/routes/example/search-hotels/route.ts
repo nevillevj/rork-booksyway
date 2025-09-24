@@ -87,9 +87,24 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       // Get response text first to debug parsing issues
-      const responseText = await response.text();
-      console.log('Raw response length:', responseText.length);
-      console.log('Raw response preview:', responseText.substring(0, 500));
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        console.log('Raw response length:', responseText.length);
+        console.log('Raw response preview:', responseText.substring(0, 500));
+      } catch (textError) {
+        console.error('Failed to read response text:', textError);
+        return {
+          success: false,
+          message: 'Failed to read API response',
+          data: null,
+          debug: {
+            textError: textError instanceof Error ? textError.message : String(textError),
+            requestUrl: searchUrl,
+            httpStatus: response.status
+          }
+        };
+      }
       
       // Check if response is empty or truncated
       if (!responseText || responseText.length === 0) {
@@ -212,11 +227,30 @@ export const searchHotelsProcedure = publicProcedure
       
       let data;
       try {
-        data = JSON.parse(responseText);
+        // Clean the response text before parsing
+        const cleanedResponse = responseText.trim();
+        
+        // Check if response looks like JSON
+        if (!cleanedResponse.startsWith('{') && !cleanedResponse.startsWith('[')) {
+          throw new Error(`Response doesn't look like JSON. Starts with: ${cleanedResponse.substring(0, 50)}`);
+        }
+        
+        // Check if response is complete JSON
+        const openBraces = (cleanedResponse.match(/{/g) || []).length;
+        const closeBraces = (cleanedResponse.match(/}/g) || []).length;
+        const openBrackets = (cleanedResponse.match(/\[/g) || []).length;
+        const closeBrackets = (cleanedResponse.match(/\]/g) || []).length;
+        
+        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+          throw new Error(`Incomplete JSON detected. Open braces: ${openBraces}, Close braces: ${closeBraces}, Open brackets: ${openBrackets}, Close brackets: ${closeBrackets}`);
+        }
+        
+        data = JSON.parse(cleanedResponse);
         console.log('Parsed API response:', JSON.stringify(data, null, 2));
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
-        console.error('Failed to parse response:', responseText);
+        console.error('Failed to parse response:', responseText.substring(0, 1000));
+        console.error('Response ends with:', responseText.substring(Math.max(0, responseText.length - 100)));
         
         // Return fallback data instead of error for parsing issues
         const fallbackHotels = [

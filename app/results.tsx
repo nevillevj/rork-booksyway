@@ -535,6 +535,24 @@ export default function ResultsScreen() {
                 Showing sample hotels while we work on connecting to live data
               </Text>
             )}
+            {hotelsQuery.data.debug && (
+              <View style={styles.debugContainer}>
+                <Text style={styles.debugTitle}>Debug Info:</Text>
+                <Text style={styles.debugText}>
+                  Status: {hotelsQuery.data.debug.httpStatus || 'N/A'}
+                </Text>
+                {hotelsQuery.data.debug.responseLength !== undefined && (
+                  <Text style={styles.debugText}>
+                    Response Length: {hotelsQuery.data.debug.responseLength}
+                  </Text>
+                )}
+                {hotelsQuery.data.debug.parseError && (
+                  <Text style={styles.debugText}>
+                    Parse Error: {hotelsQuery.data.debug.parseError}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -1075,6 +1093,25 @@ const styles = StyleSheet.create({
     color: '#6C757D',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  debugContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+  },
+  debugTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 10,
+    color: '#6C757D',
+    fontFamily: 'monospace',
   },
   noResultsContainer: {
     flex: 1,

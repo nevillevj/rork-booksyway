@@ -19,15 +19,15 @@ export const testLiteApiProcedure = publicProcedure
       // Test with the correct LiteAPI endpoint - use v3.0 version
       const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
       const queryParams = new URLSearchParams({
-        countryCode: 'US',
-        cityName: 'New York',
+        cityCode: 'NYC',
         checkin: '2024-12-01',
         checkout: '2024-12-03',
         currency: 'USD',
         guestNationality: 'US',
         adults: '2',
         children: '0',
-        rooms: '1'
+        rooms: '1',
+        limit: '10'
       });
       
       // Remove occupancies for now - use simple adults/children params
@@ -49,6 +49,23 @@ export const testLiteApiProcedure = publicProcedure
       const responseText = await response.text();
       console.log('Test response length:', responseText.length);
       console.log('Test response preview:', responseText.substring(0, 500));
+      
+      // Check if response is empty or truncated
+      if (!responseText || responseText.length === 0) {
+        console.error('Empty response received from LiteAPI test');
+        return {
+          success: false,
+          message: 'Empty response from LiteAPI - possible API key or endpoint issue',
+          data: {
+            responseLength: 0,
+            requestUrl: fullUrl,
+            httpStatus: response.status,
+            headers: Object.fromEntries(response.headers.entries()),
+            apiKeyPresent: !!apiKey,
+            endpoint: searchUrl
+          }
+        };
+      }
       
       if (!response.ok) {
         console.error('Test API error:', response.status, response.statusText);

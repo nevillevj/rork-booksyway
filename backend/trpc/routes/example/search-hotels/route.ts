@@ -46,32 +46,31 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI endpoint - v3.0/hotels/search endpoint
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      // Try different LiteAPI endpoints - start with GET method
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
       
-      console.log('Request URL:', searchUrl);
-
-      // Build the request body for POST request according to LiteAPI docs
-      const requestBody = {
+      // Build query parameters for GET request
+      const queryParams = new URLSearchParams({
         cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
-        occupancies: occupancies,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        limit: input.limit
-      };
+        adults: input.adults.toString(),
+        children: input.children.toString(),
+        rooms: input.rooms.toString(),
+        limit: input.limit.toString()
+      });
       
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
+      console.log('Request URL:', fullUrl);
       
-      const response = await fetch(searchUrl, {
-        method: 'POST',
+      const response = await fetch(fullUrl, {
+        method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
+          'Accept': 'application/json'
+        }
       });
 
       console.log('Response status:', response.status);
@@ -81,6 +80,22 @@ export const searchHotelsProcedure = publicProcedure
       const responseText = await response.text();
       console.log('Raw response length:', responseText.length);
       console.log('Raw response preview:', responseText.substring(0, 500));
+      
+      // Check if response is empty or truncated
+      if (!responseText || responseText.length === 0) {
+        console.error('Empty response received from LiteAPI');
+        return {
+          success: false,
+          message: 'Empty response from LiteAPI - possible API key or endpoint issue',
+          data: null,
+          debug: {
+            responseLength: 0,
+            requestUrl: fullUrl,
+            httpStatus: response.status,
+            headers: Object.fromEntries(response.headers.entries())
+          }
+        };
+      }
       
       if (!response.ok) {
         console.error('HTTP Error:', response.status, response.statusText);
@@ -160,7 +175,9 @@ export const searchHotelsProcedure = publicProcedure
                 cityCode: input.cityCode,
                 checkin: input.checkin,
                 checkout: input.checkout,
-                occupancies: occupancies,
+                adults: input.adults,
+                children: input.children,
+                rooms: input.rooms,
                 currency: input.currency,
                 guestNationality: input.guestNationality,
                 limit: input.limit
@@ -282,8 +299,7 @@ export const searchHotelsProcedure = publicProcedure
           hotels: transformedHotels,
           totalCount: data.totalCount || data.total || data.count || transformedHotels.length,
           searchParams: {
-            ...input,
-            occupancies: occupancies
+            ...input
           },
           timestamp: new Date().toISOString(),
           apiResponse: data

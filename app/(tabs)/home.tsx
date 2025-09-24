@@ -193,6 +193,7 @@ export default function HomeScreen() {
 }
 
 function TestApiButton() {
+  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const testApiQuery = trpc.example.testLiteApi.useQuery(undefined, {
     enabled: false,
   });
@@ -244,6 +245,7 @@ function TestApiButton() {
 function NetworkDiagnostics() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const checkBackendHealth = async () => {
     setBackendStatus('checking');
@@ -252,7 +254,7 @@ function NetworkDiagnostics() {
       console.log('Checking backend health at:', baseUrl);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced timeout
       
       const response = await fetch(`${baseUrl}/api/`, {
         method: 'GET',
@@ -273,13 +275,14 @@ function NetworkDiagnostics() {
       }
     } catch (error) {
       setBackendStatus('offline');
-      console.error('Backend health check failed:', error);
+      console.warn('Backend health check failed:', error); // Changed to warn to reduce noise
     }
     setLastCheck(new Date());
   };
 
   React.useEffect(() => {
-    checkBackendHealth();
+    // Only check backend health if explicitly requested
+    // Don't auto-check on mount to avoid unnecessary errors
   }, []);
 
   const getStatusColor = () => {
@@ -300,9 +303,33 @@ function NetworkDiagnostics() {
     }
   };
 
+  if (!showDiagnostics) {
+    return (
+      <View style={styles.diagnosticsContainer}>
+        <TouchableOpacity 
+          style={styles.showDiagnosticsButton}
+          onPress={() => {
+            setShowDiagnostics(true);
+            checkBackendHealth();
+          }}
+        >
+          <Text style={styles.showDiagnosticsText}>Show Network Diagnostics</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.diagnosticsContainer}>
-      <Text style={styles.diagnosticsTitle}>Network Diagnostics</Text>
+      <View style={styles.diagnosticsHeader}>
+        <Text style={styles.diagnosticsTitle}>Network Diagnostics</Text>
+        <TouchableOpacity 
+          style={styles.hideDiagnosticsButton}
+          onPress={() => setShowDiagnostics(false)}
+        >
+          <Text style={styles.hideDiagnosticsText}>Hide</Text>
+        </TouchableOpacity>
+      </View>
       
       <View style={styles.statusRow}>
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
@@ -312,7 +339,7 @@ function NetworkDiagnostics() {
           onPress={checkBackendHealth}
           disabled={backendStatus === 'checking'}
         >
-          <Text style={styles.refreshButtonText}>Refresh</Text>
+          <Text style={styles.refreshButtonText}>Check</Text>
         </TouchableOpacity>
       </View>
       
@@ -328,10 +355,10 @@ function NetworkDiagnostics() {
       
       {backendStatus === 'offline' && (
         <View style={styles.troubleshootContainer}>
-          <Text style={styles.troubleshootTitle}>Troubleshooting:</Text>
-          <Text style={styles.troubleshootItem}>• Ensure backend server is running</Text>
-          <Text style={styles.troubleshootItem}>• Check EXPO_PUBLIC_RORK_API_BASE_URL in .env.local</Text>
-          <Text style={styles.troubleshootItem}>• Verify network connectivity</Text>
+          <Text style={styles.troubleshootTitle}>Backend Server Not Running</Text>
+          <Text style={styles.troubleshootItem}>• Start the backend server to enable API features</Text>
+          <Text style={styles.troubleshootItem}>• The app will work with mock data until then</Text>
+          <Text style={styles.troubleshootItem}>• Check console for server startup instructions</Text>
         </View>
       )}
     </View>
@@ -588,7 +615,7 @@ const styles = StyleSheet.create({
   },
   diagnosticsContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingVertical: 12,
     backgroundColor: 'white',
     margin: 16,
     borderRadius: 12,
@@ -600,6 +627,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  showDiagnosticsButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  showDiagnosticsText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  diagnosticsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  hideDiagnosticsButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  hideDiagnosticsText: {
+    fontSize: 12,
+    color: '#007AFF',
   },
   diagnosticsTitle: {
     fontSize: 16,

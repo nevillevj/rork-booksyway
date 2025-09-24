@@ -6,20 +6,22 @@ import superjson from "superjson";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
+  // Check for environment variable first
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     console.log('Using configured API base URL:', process.env.EXPO_PUBLIC_RORK_API_BASE_URL);
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
-  // Fallback for development
+  // Development fallback
   if (__DEV__) {
-    console.warn('EXPO_PUBLIC_RORK_API_BASE_URL not set, using localhost fallback');
-    console.log('🚨 Make sure to start the backend server with: bun run start-backend.ts');
-    return 'http://localhost:8081';
+    const baseUrl = 'http://localhost:8081';
+    console.log('🔧 Using development base URL:', baseUrl);
+    console.log('🚨 Make sure to start the backend server with: bun run server.ts');
+    return baseUrl;
   }
 
   throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
+    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL or start in development mode"
   );
 };
 

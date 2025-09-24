@@ -82,32 +82,50 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Request URL:', searchUrl);
       console.log('Request Body:', JSON.stringify(requestBody, null, 2));
       
-      // For sandbox, the key format should be like: sand_public_key:private_key
-      // Let's try to parse it or use it as both public and private for testing
-      let publicKey = apiKey;
-      let privateKey = apiKey;
+      // Try different authentication methods for sandbox
+      let headers: Record<string, string>;
       
-      // If the key contains a colon, split it
-      if (apiKey.includes(':')) {
-        const [pub, priv] = apiKey.split(':');
-        publicKey = pub;
-        privateKey = priv;
-      }
-      
-      console.log('Public Key:', publicKey);
-      console.log('Private Key (first 10 chars):', privateKey.substring(0, 10) + '...');
-      
-      // Create secure authorization
-      const auth = createLiteApiAuth(publicKey, privateKey);
-      console.log('Authorization header created');
-      
-      const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers: {
+      if (apiKey.startsWith('sand_')) {
+        // For sandbox keys, try simple API key authentication first
+        console.log('Using simple API key authentication for sandbox');
+        headers = {
+          'X-API-Key': apiKey,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        };
+      } else {
+        // For production keys, use signature authentication
+        let publicKey: string;
+        let privateKey: string;
+        
+        if (apiKey.includes(':')) {
+          // Format: public_key:private_key
+          const [pub, priv] = apiKey.split(':');
+          publicKey = pub;
+          privateKey = priv;
+        } else {
+          // Single key format
+          publicKey = apiKey;
+          privateKey = apiKey;
+        }
+        
+        console.log('Public Key:', publicKey);
+        console.log('Private Key (first 10 chars):', privateKey.substring(0, 10) + '...');
+        
+        // Create secure authorization
+        const auth = createLiteApiAuth(publicKey, privateKey);
+        console.log('Authorization header created');
+        
+        headers = {
           'Authorization': auth.authorization,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-        },
+        };
+      }
+      
+      const response = await fetch(searchUrl, {
+        method: 'POST',
+        headers,
         body: JSON.stringify(requestBody)
       });
 

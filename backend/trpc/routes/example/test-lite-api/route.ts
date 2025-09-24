@@ -1,4 +1,19 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
+import crypto from 'crypto';
+
+// Helper function to create LiteAPI authorization signature
+function createLiteApiAuth(publicKey: string, privateKey: string) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const signature = crypto
+    .createHmac('sha512', privateKey)
+    .update(publicKey + privateKey + timestamp)
+    .digest('hex');
+  
+  return {
+    authorization: `PublicKey=${publicKey},Signature=${signature},Timestamp=${timestamp}`,
+    timestamp
+  };
+}
 
 export const testLiteApiProcedure = publicProcedure
   .query(async () => {
@@ -15,6 +30,25 @@ export const testLiteApiProcedure = publicProcedure
 
       console.log('=== LiteAPI Connection Test ===');
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
+      
+      // For sandbox, the key format should be like: sand_public_key:private_key
+      // Let's try to parse it or use it as both public and private for testing
+      let publicKey = apiKey;
+      let privateKey = apiKey;
+      
+      // If the key contains a colon, split it
+      if (apiKey.includes(':')) {
+        const [pub, priv] = apiKey.split(':');
+        publicKey = pub;
+        privateKey = priv;
+      }
+      
+      console.log('Public Key:', publicKey);
+      console.log('Private Key (first 10 chars):', privateKey.substring(0, 10) + '...');
+      
+      // Create secure authorization
+      const auth = createLiteApiAuth(publicKey, privateKey);
+      console.log('Authorization header created');
       
       // Test with the correct LiteAPI endpoint - use v3.0 version with POST method
       const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
@@ -41,7 +75,7 @@ export const testLiteApiProcedure = publicProcedure
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
-          'X-API-Key': apiKey,
+          'Authorization': auth.authorization,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },

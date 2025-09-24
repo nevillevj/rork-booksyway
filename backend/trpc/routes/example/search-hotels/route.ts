@@ -1,5 +1,6 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
 import { z } from "zod";
+import crypto from 'crypto';
 
 const searchHotelsSchema = z.object({
   cityCode: z.string().min(1),
@@ -12,6 +13,24 @@ const searchHotelsSchema = z.object({
   guestNationality: z.string().default('US'),
   limit: z.number().min(1).max(100).default(20)
 });
+
+// Helper function to create LiteAPI authorization signature
+function createLiteApiAuth(publicKey: string, privateKey: string) {
+  if (!publicKey?.trim() || !privateKey?.trim()) {
+    throw new Error('Invalid API keys provided');
+  }
+  
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const signature = crypto
+    .createHmac('sha512', privateKey.trim())
+    .update(publicKey.trim() + privateKey.trim() + timestamp)
+    .digest('hex');
+  
+  return {
+    authorization: `PublicKey=${publicKey.trim()},Signature=${signature},Timestamp=${timestamp}`,
+    timestamp
+  };
+}
 
 
 
@@ -63,10 +82,29 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Request URL:', searchUrl);
       console.log('Request Body:', JSON.stringify(requestBody, null, 2));
       
+      // For sandbox, the key format should be like: sand_public_key:private_key
+      // Let's try to parse it or use it as both public and private for testing
+      let publicKey = apiKey;
+      let privateKey = apiKey;
+      
+      // If the key contains a colon, split it
+      if (apiKey.includes(':')) {
+        const [pub, priv] = apiKey.split(':');
+        publicKey = pub;
+        privateKey = priv;
+      }
+      
+      console.log('Public Key:', publicKey);
+      console.log('Private Key (first 10 chars):', privateKey.substring(0, 10) + '...');
+      
+      // Create secure authorization
+      const auth = createLiteApiAuth(publicKey, privateKey);
+      console.log('Authorization header created');
+      
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
-          'X-API-Key': apiKey,
+          'Authorization': auth.authorization,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },

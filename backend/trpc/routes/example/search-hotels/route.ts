@@ -128,60 +128,155 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Handle response with better error handling for "unexpected end of file"
+      // Handle response with robust error handling for "unexpected end of file"
       let responseText = '';
+      let responseData: any = null;
+      
       try {
         // Check if response has content-length header
         const contentLength = response.headers.get('content-length');
+        const contentType = response.headers.get('content-type');
         console.log('Response content-length:', contentLength);
+        console.log('Response content-type:', contentType);
         
-        // Clone response to avoid "body already read" errors
-        const responseClone = response.clone();
-        
-        // Try to read as text with timeout
-        const textPromise = responseClone.text();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Response read timeout')), 10000)
-        );
-        
-        responseText = await Promise.race([textPromise, timeoutPromise]) as string;
-        
-        console.log('Raw response length:', responseText.length);
-        console.log('Raw response preview:', responseText.substring(0, 500));
-        
-        if (responseText.length > 100) {
-          console.log('Raw response ending:', responseText.substring(Math.max(0, responseText.length - 100)));
-        }
-        
-      } catch (textError) {
-        console.error('Failed to read response text:', textError);
-        
-        // Try alternative method to read response
-        try {
-          const buffer = await response.arrayBuffer();
-          responseText = new TextDecoder().decode(buffer);
-          console.log('Successfully read response using arrayBuffer method');
-        } catch (bufferError) {
-          console.error('Failed to read response with arrayBuffer:', bufferError);
-          
-          const errorMessage = textError instanceof Error ? textError.message : String(textError);
-          console.error('Text error details:', errorMessage);
-          
-          return {
-            success: false,
-            message: `Failed to read API response: ${errorMessage}`,
-            data: null,
-            debug: {
-              textError: errorMessage,
-              bufferError: bufferError instanceof Error ? bufferError.message : String(bufferError),
-              requestUrl: searchUrl,
-              httpStatus: response.status,
-              headers: Object.fromEntries(response.headers.entries()),
-              responseBodyExists: !!response.body,
-              responseOk: response.ok
+        // For status 200 responses, try multiple methods to read the response
+        if (response.status === 200) {
+          // Method 1: Try reading as JSON directly (most efficient for valid JSON)
+          try {
+            const responseClone1 = response.clone();
+            responseData = await responseClone1.json();
+            console.log('Successfully read response as JSON directly');
+            responseText = JSON.stringify(responseData);
+          } catch (jsonError) {
+            console.log('Direct JSON parsing failed, trying text method:', jsonError);
+            
+            // Method 2: Read as text then parse
+            try {
+              const responseClone2 = response.clone();
+              responseText = await responseClone2.text();
+              console.log('Raw response length:', responseText.length);
+              
+              if (responseText.length > 0) {
+                console.log('Raw response preview:', responseText.substring(0, 200));
+                if (responseText.length > 200) {
+                  console.log('Raw response ending:', responseText.substring(Math.max(0, responseText.length - 100)));
+                }
+              }
+            } catch (textError) {
+              console.error('Text reading failed, trying arrayBuffer method:', textError);
+              
+              // Method 3: Try arrayBuffer as last resort
+              try {
+                const buffer = await response.arrayBuffer();
+                responseText = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+                console.log('Successfully read response using arrayBuffer method, length:', responseText.length);
+              } catch (bufferError) {
+                console.error('All response reading methods failed');
+                console.error('Text error:', textError);
+                console.error('Buffer error:', bufferError);
+                
+                // Return fallback data immediately for read errors
+                const fallbackHotels = [
+                  {
+                    id: 'fallback_1',
+                    name: `Sample Hotel in ${input.cityCode}`,
+                    location: `${input.cityCode}, Sample Location`,
+                    rating: 4.2,
+                    reviewCount: 156,
+                    price: 120,
+                    originalPrice: 150,
+                    imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+                    amenities: ['wifi', 'parking', 'pool'],
+                    type: 'hotel' as const,
+                    distance: '1.2 km from center',
+                    isFavorite: false,
+                    isPopular: true,
+                    hasFreeCancellation: true,
+                    currency: input.currency
+                  },
+                  {
+                    id: 'fallback_2',
+                    name: `Premium Hotel ${input.cityCode}`,
+                    location: `${input.cityCode}, Downtown`,
+                    rating: 4.5,
+                    reviewCount: 89,
+                    price: 180,
+                    imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=300&fit=crop&q=80',
+                    amenities: ['wifi', 'gym', 'spa'],
+                    type: 'hotel' as const,
+                    distance: '0.8 km from center',
+                    isFavorite: false,
+                    isPopular: false,
+                    hasFreeCancellation: true,
+                    currency: input.currency
+                  }
+                ];
+                
+                return {
+                  success: false,
+                  message: `Failed to read API response (unexpected end of file). Using sample data.`,
+                  data: {
+                    hotels: fallbackHotels,
+                    totalCount: fallbackHotels.length,
+                    searchParams: input,
+                    timestamp: new Date().toISOString(),
+                    fallback: true,
+                    debug: {
+                      error: 'Response reading failed - unexpected end of file',
+                      httpStatus: response.status,
+                      contentLength,
+                      contentType,
+                      textError: textError instanceof Error ? textError.message : String(textError),
+                      bufferError: bufferError instanceof Error ? bufferError.message : String(bufferError)
+                    }
+                  }
+                };
+              }
             }
-          };
+          }
+        } else {
+          // For non-200 responses, just read as text
+          responseText = await response.text();
         }
+      } catch (readError) {
+        console.error('Critical error reading response:', readError);
+        
+        // Return fallback data for any critical read errors
+        const fallbackHotels = [
+          {
+            id: 'fallback_1',
+            name: `Sample Hotel in ${input.cityCode}`,
+            location: `${input.cityCode}, Sample Location`,
+            rating: 4.2,
+            reviewCount: 156,
+            price: 120,
+            originalPrice: 150,
+            imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+            amenities: ['wifi', 'parking', 'pool'],
+            type: 'hotel' as const,
+            distance: '1.2 km from center',
+            isFavorite: false,
+            isPopular: true,
+            hasFreeCancellation: true,
+            currency: input.currency
+          }
+        ];
+        
+        return {
+          success: false,
+          message: `Critical response reading error. Using sample data.`,
+          data: {
+            hotels: fallbackHotels,
+            totalCount: fallbackHotels.length,
+            searchParams: input,
+            timestamp: new Date().toISOString(),
+            fallback: true,
+            debug: {
+              error: 'Critical response reading error',
+              readError: readError instanceof Error ? readError.message : String(readError)
+            }
+          }
+        };
       }
       
       // Check if response is empty or truncated
@@ -304,105 +399,144 @@ export const searchHotelsProcedure = publicProcedure
       }
       
       let data;
-      try {
-        // Clean the response text before parsing
-        const cleanedResponse = responseText.trim();
-        
-        // Check if response looks like JSON
-        if (!cleanedResponse.startsWith('{') && !cleanedResponse.startsWith('[')) {
-          throw new Error(`Response doesn't look like JSON. Starts with: ${cleanedResponse.substring(0, 50)}`);
-        }
-        
-        // Check if response is complete JSON
-        const openBraces = (cleanedResponse.match(/{/g) || []).length;
-        const closeBraces = (cleanedResponse.match(/}/g) || []).length;
-        const openBrackets = (cleanedResponse.match(/\[/g) || []).length;
-        const closeBrackets = (cleanedResponse.match(/\]/g) || []).length;
-        
-        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
-          throw new Error(`Incomplete JSON detected. Open braces: ${openBraces}, Close braces: ${closeBraces}, Open brackets: ${openBrackets}, Close brackets: ${closeBrackets}`);
-        }
-        
-        data = JSON.parse(cleanedResponse);
-        console.log('Parsed API response:', JSON.stringify(data, null, 2));
-      } catch (parseError) {
-        console.error('JSON parsing error:', parseError);
-        console.error('Failed to parse response:', responseText.substring(0, 1000));
-        console.error('Response ends with:', responseText.substring(Math.max(0, responseText.length - 100)));
-        
-        // Return fallback data instead of error for parsing issues
-        const fallbackHotels = [
-          {
-            id: 'fallback_1',
-            name: `Sample Hotel in ${input.cityCode}`,
-            location: `${input.cityCode}, Sample Location`,
-            rating: 4.2,
-            reviewCount: 156,
-            price: 120,
-            originalPrice: 150,
-            imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
-            amenities: ['wifi', 'parking', 'pool'],
-            type: 'hotel' as const,
-            distance: '1.2 km from center',
-            isFavorite: false,
-            isPopular: true,
-            hasFreeCancellation: true,
-            currency: input.currency
-          },
-          {
-            id: 'fallback_2',
-            name: `Premium Hotel ${input.cityCode}`,
-            location: `${input.cityCode}, Downtown`,
-            rating: 4.5,
-            reviewCount: 89,
-            price: 180,
-            imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=300&fit=crop&q=80',
-            amenities: ['wifi', 'gym', 'spa'],
-            type: 'hotel' as const,
-            distance: '0.8 km from center',
-            isFavorite: false,
-            isPopular: false,
-            hasFreeCancellation: true,
-            currency: input.currency
-          },
-          {
-            id: 'fallback_3',
-            name: `Business Hotel ${input.cityCode}`,
-            location: `${input.cityCode}, Business District`,
-            rating: 4.0,
-            reviewCount: 234,
-            price: 95,
-            imageUrl: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400&h=300&fit=crop&q=80',
-            amenities: ['wifi', 'parking', 'breakfast'],
-            type: 'hotel' as const,
-            distance: '2.1 km from center',
-            isFavorite: false,
-            isPopular: false,
-            hasFreeCancellation: true,
-            currency: input.currency
+      
+      // If we already have parsed data from direct JSON reading, use it
+      if (responseData) {
+        data = responseData;
+        console.log('Using pre-parsed JSON data');
+      } else {
+        // Otherwise, try to parse the text response
+        try {
+          // Clean the response text before parsing
+          const cleanedResponse = responseText.trim();
+          
+          if (!cleanedResponse) {
+            throw new Error('Empty response text');
           }
-        ];
-        
-        return {
-          success: false,
-          message: `Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}. Using sample data.`,
-          data: {
-            hotels: fallbackHotels,
-            totalCount: fallbackHotels.length,
-            searchParams: {
-              ...input,
-              occupancies: occupancies
-            },
-            timestamp: new Date().toISOString(),
-            fallback: true,
-            debug: {
-              parseError: parseError instanceof Error ? parseError.message : String(parseError),
-              responseText: responseText.substring(0, 1000),
-              requestUrl: searchUrl,
-              httpStatus: response.status
+          
+          // Check if response looks like JSON
+          if (!cleanedResponse.startsWith('{') && !cleanedResponse.startsWith('[')) {
+            throw new Error(`Response doesn't look like JSON. Starts with: ${cleanedResponse.substring(0, 50)}`);
+          }
+          
+          // Check if response is complete JSON by counting braces/brackets
+          const openBraces = (cleanedResponse.match(/{/g) || []).length;
+          const closeBraces = (cleanedResponse.match(/}/g) || []).length;
+          const openBrackets = (cleanedResponse.match(/\[/g) || []).length;
+          const closeBrackets = (cleanedResponse.match(/\]/g) || []).length;
+          
+          if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+            console.warn(`Potentially incomplete JSON detected. Open braces: ${openBraces}, Close braces: ${closeBraces}, Open brackets: ${openBrackets}, Close brackets: ${closeBrackets}`);
+            console.warn('Response preview:', cleanedResponse.substring(0, 200));
+            console.warn('Response ending:', cleanedResponse.substring(Math.max(0, cleanedResponse.length - 100)));
+            
+            // Try to fix common JSON truncation issues
+            let fixedResponse = cleanedResponse;
+            
+            // If it looks like it was cut off mid-object, try to close it
+            if (openBraces > closeBraces) {
+              const missingBraces = openBraces - closeBraces;
+              fixedResponse += '}'.repeat(missingBraces);
+              console.log(`Added ${missingBraces} closing braces`);
             }
+            
+            if (openBrackets > closeBrackets) {
+              const missingBrackets = openBrackets - closeBrackets;
+              fixedResponse += ']'.repeat(missingBrackets);
+              console.log(`Added ${missingBrackets} closing brackets`);
+            }
+            
+            try {
+              data = JSON.parse(fixedResponse);
+              console.log('Successfully parsed fixed JSON');
+            } catch (fixError) {
+              console.error('Failed to parse even after fixing:', fixError);
+              throw new Error(`Incomplete JSON that couldn't be fixed: ${fixError}`);
+            }
+          } else {
+            data = JSON.parse(cleanedResponse);
+            console.log('Successfully parsed complete JSON');
           }
-        };
+          
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError);
+          console.error('Failed to parse response:', responseText.substring(0, 1000));
+          console.error('Response ends with:', responseText.substring(Math.max(0, responseText.length - 100)));
+          
+          // Return fallback data instead of error for parsing issues
+          const fallbackHotels = [
+            {
+              id: 'fallback_1',
+              name: `Sample Hotel in ${input.cityCode}`,
+              location: `${input.cityCode}, Sample Location`,
+              rating: 4.2,
+              reviewCount: 156,
+              price: 120,
+              originalPrice: 150,
+              imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+              amenities: ['wifi', 'parking', 'pool'],
+              type: 'hotel' as const,
+              distance: '1.2 km from center',
+              isFavorite: false,
+              isPopular: true,
+              hasFreeCancellation: true,
+              currency: input.currency
+            },
+            {
+              id: 'fallback_2',
+              name: `Premium Hotel ${input.cityCode}`,
+              location: `${input.cityCode}, Downtown`,
+              rating: 4.5,
+              reviewCount: 89,
+              price: 180,
+              imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=300&fit=crop&q=80',
+              amenities: ['wifi', 'gym', 'spa'],
+              type: 'hotel' as const,
+              distance: '0.8 km from center',
+              isFavorite: false,
+              isPopular: false,
+              hasFreeCancellation: true,
+              currency: input.currency
+            },
+            {
+              id: 'fallback_3',
+              name: `Business Hotel ${input.cityCode}`,
+              location: `${input.cityCode}, Business District`,
+              rating: 4.0,
+              reviewCount: 234,
+              price: 95,
+              imageUrl: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=400&h=300&fit=crop&q=80',
+              amenities: ['wifi', 'parking', 'breakfast'],
+              type: 'hotel' as const,
+              distance: '2.1 km from center',
+              isFavorite: false,
+              isPopular: false,
+              hasFreeCancellation: true,
+              currency: input.currency
+            }
+          ];
+          
+          return {
+            success: false,
+            message: `Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}. Using sample data.`,
+            data: {
+              hotels: fallbackHotels,
+              totalCount: fallbackHotels.length,
+              searchParams: {
+                ...input,
+                occupancies: occupancies
+              },
+              timestamp: new Date().toISOString(),
+              fallback: true,
+              debug: {
+                parseError: parseError instanceof Error ? parseError.message : String(parseError),
+                responseText: responseText.substring(0, 1000),
+                requestUrl: searchUrl,
+                httpStatus: response.status
+              }
+            }
+          };
+        }
       }
       
       // Check for API errors in response

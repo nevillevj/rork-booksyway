@@ -46,31 +46,31 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Try different LiteAPI endpoints - start with GET method
-      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
+      // Use the correct LiteAPI search endpoint with POST method
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
       
-      // Build query parameters for GET request
-      const queryParams = new URLSearchParams({
+      // Build request body for POST request
+      const requestBody = {
         cityCode: input.cityCode,
         checkin: input.checkin,
         checkout: input.checkout,
         currency: input.currency,
         guestNationality: input.guestNationality,
-        adults: input.adults.toString(),
-        children: input.children.toString(),
-        rooms: input.rooms.toString(),
-        limit: input.limit.toString()
-      });
+        occupancies: occupancies,
+        limit: input.limit
+      };
       
-      const fullUrl = `${searchUrl}?${queryParams.toString()}`;
-      console.log('Request URL:', fullUrl);
+      console.log('Request URL:', searchUrl);
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
       
-      const response = await fetch(fullUrl, {
-        method: 'GET',
+      const response = await fetch(searchUrl, {
+        method: 'POST',
         headers: {
           'X-API-Key': apiKey,
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
       console.log('Response status:', response.status);
@@ -90,7 +90,7 @@ export const searchHotelsProcedure = publicProcedure
           data: null,
           debug: {
             responseLength: 0,
-            requestUrl: fullUrl,
+            requestUrl: searchUrl,
             httpStatus: response.status,
             headers: Object.fromEntries(response.headers.entries())
           }

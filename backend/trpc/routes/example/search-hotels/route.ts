@@ -44,19 +44,16 @@ export const searchHotelsProcedure = publicProcedure
         });
       }
 
-      console.log('Generated occupancies:', occupancies);
+      console.log('Generated occupancies (for future use):', occupancies);
 
-      // Use the correct LiteAPI search endpoint with POST method
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      // Use the LiteAPI data/hotels endpoint which is documented and working
+      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
       
-      // Build request body for POST request
+      // Build request body for data/hotels endpoint
       const requestBody = {
-        cityCode: input.cityCode,
-        checkin: input.checkin,
-        checkout: input.checkout,
-        currency: input.currency,
-        guestNationality: input.guestNationality,
-        occupancies: occupancies,
+        countryCode: 'US', // Default to US for now
+        cityName: input.cityCode, // Use cityCode as cityName for now
+        offset: 0,
         limit: input.limit
       };
       

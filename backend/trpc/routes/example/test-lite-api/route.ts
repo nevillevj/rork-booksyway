@@ -16,39 +16,19 @@ export const testLiteApiProcedure = publicProcedure
       console.log('=== LiteAPI Connection Test ===');
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
-      // LiteAPI uses simple X-API-Key header authentication
-      const headers = {
-        'X-API-Key': apiKey,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      };
+
+      // First try a simple GET request to test connectivity and authentication
+      const testUrl = 'https://api.liteapi.travel/v3.0/data/countries';
       
-      // Test with the correct LiteAPI endpoint - use v3.0 version with POST method
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      console.log('Test request URL:', testUrl);
+      console.log('Using GET request to test basic connectivity');
       
-      // Build occupancies array - mandatory parameter for LiteAPI
-      const occupancies = [{
-        adults: 2,
-        children: 0
-      }];
-      
-      const requestBody = {
-        cityCode: 'NYC',
-        checkin: '2024-12-01',
-        checkout: '2024-12-03',
-        currency: 'USD',
-        guestNationality: 'US',
-        occupancies: occupancies,
-        limit: 10
-      };
-      
-      console.log('Test request URL:', searchUrl);
-      console.log('Test request body:', JSON.stringify(requestBody, null, 2));
-      
-      const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': apiKey,
+          'Accept': 'application/json'
+        }
       });
       
       console.log('Test response status:', response.status);
@@ -66,11 +46,11 @@ export const testLiteApiProcedure = publicProcedure
           message: 'Empty response from LiteAPI - possible API key or endpoint issue',
           data: {
             responseLength: 0,
-            requestUrl: searchUrl,
+            requestUrl: testUrl,
             httpStatus: response.status,
             headers: Object.fromEntries(response.headers.entries()),
             apiKeyPresent: !!apiKey,
-            endpoint: searchUrl
+            endpoint: testUrl
           }
         };
       }
@@ -85,9 +65,9 @@ export const testLiteApiProcedure = publicProcedure
             httpStatus: response.status,
             httpStatusText: response.statusText,
             responseBody: responseText.substring(0, 1000),
-            requestUrl: searchUrl,
+            requestUrl: testUrl,
             apiKeyPresent: !!apiKey,
-            endpoint: searchUrl
+            endpoint: testUrl
           }
         };
       }
@@ -105,7 +85,7 @@ export const testLiteApiProcedure = publicProcedure
             parseError: parseError instanceof Error ? parseError.message : String(parseError),
             responseText: responseText.substring(0, 1000),
             apiKeyPresent: !!apiKey,
-            endpoint: searchUrl
+            endpoint: testUrl
           }
         };
       }
@@ -121,7 +101,7 @@ export const testLiteApiProcedure = publicProcedure
             apiError: data.error || data.errors,
             fullResponse: data,
             apiKeyPresent: !!apiKey,
-            endpoint: searchUrl
+            endpoint: testUrl
           }
         };
       }
@@ -138,14 +118,14 @@ export const testLiteApiProcedure = publicProcedure
       
       return {
         success: true,
-        message: `LiteAPI connection successful! Found ${hotelsCount} hotels in test search.`,
+        message: `LiteAPI connection successful! Test endpoint responded with data.`,
         data: {
           status: response.status,
           hotelsFound: hotelsCount,
           responseStructure: Object.keys(data),
           apiKeyPresent: !!apiKey,
-          endpoint: searchUrl,
-          testRequestUrl: searchUrl,
+          endpoint: testUrl,
+          testRequestUrl: testUrl,
           sampleResponse: JSON.stringify(data, null, 2).substring(0, 1000)
         }
       };

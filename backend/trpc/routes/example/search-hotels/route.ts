@@ -3,8 +3,8 @@ import { z } from "zod";
 
 const searchHotelsSchema = z.object({
   cityCode: z.string().min(1),
-  checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
-  checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
+  checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   adults: z.number().min(1).default(2),
   children: z.number().min(0).default(0),
   rooms: z.number().min(1).default(1),
@@ -60,66 +60,61 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Input parameters:', input);
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
-      // Build occupancies array - mandatory parameter for LiteAPI
-      // Format: [{ adults: number, children: number }] for each room
+      // Build occupancies array
       const occupancies = [];
       for (let i = 0; i < input.rooms; i++) {
         occupancies.push({
           adults: Math.ceil(input.adults / input.rooms),
-          children: i === 0 ? input.children : 0 // Put all children in first room
+          children: i === 0 ? input.children : 0
         });
       }
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use the correct LiteAPI search endpoint - v3.0/hotels/search
-      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/search';
+      // Try the correct LiteAPI endpoint with proper error handling
+      const searchUrl = 'https://api.liteapi.travel/v3.0/hotels/rates';
       
       console.log('Request URL:', searchUrl);
 
-      // Build the request body according to LiteAPI documentation
-      // Try different parameter combinations based on API docs
       const requestBody = {
-        cityName: getCityNameFromCode(input.cityCode),
-        countryCode: 'US', // Add country code as it might be required
         checkin: input.checkin,
         checkout: input.checkout,
         currency: input.currency,
         guestNationality: input.guestNationality,
         occupancies: occupancies,
-        limit: input.limit
+        cityName: getCityNameFromCode(input.cityCode),
+        countryCode: 'US'
       };
       
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
-      const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Get response text first to debug parsing issues
-      const responseText = await response.text();
-      console.log('Raw response length:', responseText.length);
-      console.log('Raw response preview:', responseText.substring(0, 500));
+      // Add timeout and better error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      if (!response.ok) {
-        console.error('HTTP Error:', response.status, response.statusText);
-        console.error('Error response body:', responseText);
+      let response: Response;
+      try {
+        response = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'X-API-Key': apiKey,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'BookingApp/1.0'
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        console.error('Fetch error:', fetchError);
         
-        // Return fallback data with error info
+        // Return fallback data for network errors
         const fallbackHotels = [
           {
             id: 'fallback_1',
-            name: `Sample Hotel in ${input.cityCode}`,
-            location: `${input.cityCode}, Sample Location`,
+            name: `Sample Hotel in ${getCityNameFromCode(input.cityCode)}`,
+            location: `${getCityNameFromCode(input.cityCode)}, Sample Location`,
             rating: 4.2,
             reviewCount: 156,
             price: 120,
@@ -135,8 +130,8 @@ export const searchHotelsProcedure = publicProcedure
           },
           {
             id: 'fallback_2',
-            name: `Premium Hotel ${input.cityCode}`,
-            location: `${input.cityCode}, Downtown`,
+            name: `Premium Hotel ${getCityNameFromCode(input.cityCode)}`,
+            location: `${getCityNameFromCode(input.cityCode)}, Downtown`,
             rating: 4.5,
             reviewCount: 89,
             price: 180,
@@ -151,8 +146,8 @@ export const searchHotelsProcedure = publicProcedure
           },
           {
             id: 'fallback_3',
-            name: `Business Hotel ${input.cityCode}`,
-            location: `${input.cityCode}, Business District`,
+            name: `Business Hotel ${getCityNameFromCode(input.cityCode)}`,
+            location: `${getCityNameFromCode(input.cityCode)}, Business District`,
             rating: 4.0,
             reviewCount: 234,
             price: 95,
@@ -169,7 +164,7 @@ export const searchHotelsProcedure = publicProcedure
         
         return {
           success: false,
-          message: `API Error ${response.status}: ${response.statusText}. Using sample data.`,
+          message: `Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown network error'}. Using sample data.`,
           data: {
             hotels: fallbackHotels,
             totalCount: fallbackHotels.length,
@@ -180,20 +175,51 @@ export const searchHotelsProcedure = publicProcedure
             timestamp: new Date().toISOString(),
             fallback: true,
             debug: {
-              httpStatus: response.status,
-              httpStatusText: response.statusText,
-              responseBody: responseText.substring(0, 1000),
-              requestUrl: searchUrl,
-              requestParams: {
-                cityCode: input.cityCode,
-                checkin: input.checkin,
-                checkout: input.checkout,
-                occupancies: occupancies,
-                currency: input.currency,
-                guestNationality: input.guestNationality,
-                limit: input.limit
-              }
+              networkError: fetchError instanceof Error ? fetchError.message : String(fetchError),
+              requestUrl: searchUrl
             }
+          }
+        };
+      }
+      
+      clearTimeout(timeoutId);
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Handle response with better streaming support
+      let responseText: string;
+      try {
+        responseText = await response.text();
+      } catch (textError) {
+        console.error('Error reading response text:', textError);
+        return {
+          success: false,
+          message: 'Failed to read API response',
+          data: null,
+          debug: {
+            textError: textError instanceof Error ? textError.message : String(textError),
+            responseStatus: response.status
+          }
+        };
+      }
+      
+      console.log('Raw response length:', responseText.length);
+      console.log('Raw response preview:', responseText.substring(0, 500));
+      
+      if (!response.ok) {
+        console.error('HTTP Error:', response.status, response.statusText);
+        console.error('Error response body:', responseText);
+        
+        return {
+          success: false,
+          message: `API Error ${response.status}: ${response.statusText}`,
+          data: null,
+          debug: {
+            httpStatus: response.status,
+            httpStatusText: response.statusText,
+            responseBody: responseText.substring(0, 1000),
+            requestUrl: searchUrl
           }
         };
       }
@@ -211,10 +237,29 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
       
-      let data;
+      let data: any;
       try {
-        // Check if response looks like valid JSON before parsing
+        // Better JSON parsing with validation
         const trimmedResponse = responseText.trim();
+        
+        // Check for common truncation patterns
+        if (trimmedResponse.length > 0 && !trimmedResponse.endsWith('}') && !trimmedResponse.endsWith(']')) {
+          console.error('Response appears to be truncated');
+          console.error('Last 100 chars:', trimmedResponse.slice(-100));
+          return {
+            success: false,
+            message: 'API response appears to be truncated (unexpected end of file)',
+            data: null,
+            debug: {
+              responseLength: trimmedResponse.length,
+              lastChars: trimmedResponse.slice(-100),
+              startsWithBrace: trimmedResponse.startsWith('{'),
+              endsWithBrace: trimmedResponse.endsWith('}'),
+              requestUrl: searchUrl
+            }
+          };
+        }
+        
         if (!trimmedResponse.startsWith('{') && !trimmedResponse.startsWith('[')) {
           console.error('Response does not appear to be JSON:', trimmedResponse.substring(0, 200));
           return {
@@ -224,32 +269,29 @@ export const searchHotelsProcedure = publicProcedure
             debug: {
               responseText: trimmedResponse.substring(0, 1000),
               responseLength: trimmedResponse.length,
-              startsWithBrace: trimmedResponse.startsWith('{'),
-              startsWithBracket: trimmedResponse.startsWith('[')
+              requestUrl: searchUrl
             }
           };
         }
         
-        data = JSON.parse(responseText);
-        console.log('Parsed API response keys:', Object.keys(data));
-        console.log('Parsed API response sample:', JSON.stringify(data, null, 2).substring(0, 1000));
+        data = JSON.parse(trimmedResponse);
+        console.log('Successfully parsed API response');
+        console.log('Response keys:', Object.keys(data));
+        
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
         console.error('Failed to parse response:', responseText.substring(0, 500));
         
-        // Check if it's a truncated response issue
-        const isTruncated = responseText.length > 0 && !responseText.trim().endsWith('}') && !responseText.trim().endsWith(']');
-        
         return {
           success: false,
-          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}${isTruncated ? ' (response may be truncated)' : ''}`,
+          message: `Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`,
           data: null,
           debug: {
             parseError: parseError instanceof Error ? parseError.message : String(parseError),
             responseText: responseText.substring(0, 1000),
             responseLength: responseText.length,
-            isTruncated: isTruncated,
-            lastChars: responseText.slice(-50)
+            lastChars: responseText.slice(-50),
+            requestUrl: searchUrl
           }
         };
       }
@@ -269,8 +311,8 @@ export const searchHotelsProcedure = publicProcedure
         };
       }
 
-      // Extract hotels from response - handle different response structures
-      let hotels = [];
+      // Extract hotels from response
+      let hotels: any[] = [];
       if (data.data && Array.isArray(data.data)) {
         hotels = data.data;
       } else if (Array.isArray(data)) {

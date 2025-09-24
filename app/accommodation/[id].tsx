@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { MOCK_ACCOMMODATIONS, AMENITY_ICONS, ATTRACTION_ICONS } from '@/constants/mockData';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import LiteAPIMapWidget from '@/components/LiteAPIMapWidget';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -407,10 +408,11 @@ export default function AccommodationDetailsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>
             <Text style={styles.fullAddress}>{accommodation.fullAddress}</Text>
-            <View style={styles.mapPlaceholder}>
-              <MapPin size={40} color="#007AFF" />
-              <Text style={styles.mapPlaceholderText}>Map view coming soon</Text>
-            </View>
+            <LiteAPIMapWidget 
+              coordinates={accommodation.coordinates}
+              accommodationName={accommodation.name}
+              address={accommodation.fullAddress}
+            />
           </View>
         </View>
       </ScrollView>

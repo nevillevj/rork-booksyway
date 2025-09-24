@@ -152,15 +152,16 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
 
   const googleAuthConfig = useMemo(() => {
     const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'com.yourcompany.yourapp',
+      scheme: 'myapp',
+      path: 'auth',
     });
 
     return {
       clientId: Platform.select({
-        ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'your-ios-client-id.googleusercontent.com',
-        android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || 'your-android-client-id.googleusercontent.com',
-        web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'your-web-client-id.googleusercontent.com',
-        default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'your-web-client-id.googleusercontent.com',
+        ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
+        android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
+        web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
+        default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
       }),
       scopes: ['openid', 'profile', 'email'],
       redirectUri,
@@ -244,6 +245,40 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
     try {
       setIsLoading(true);
       
+      // For development/demo purposes, simulate Google sign-in
+      if (Platform.OS === 'web' || !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleAuthConfig.clientId.includes('123456789')) {
+        console.log('Using mock Google authentication for development');
+        
+        // Simulate user selection/authentication delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const mockGoogleData: GoogleAuthData = {
+          email: 'user@gmail.com',
+          firstName: 'Google',
+          lastName: 'User',
+          profileImage: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+          googleId: 'google_' + Date.now(),
+        };
+
+        const { user, token, refreshToken } = await authAPI.signInWithGoogle(mockGoogleData);
+        
+        await storage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+        await storage.setSecureItem(STORAGE_KEYS.AUTH_TOKEN, token);
+        await storage.setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+        
+        const consentPreferences = {
+          terms: true,
+          privacy: true,
+          marketing: false,
+          timestamp: new Date().toISOString(),
+        };
+        await storage.setItem(STORAGE_KEYS.CONSENT_PREFERENCES, JSON.stringify(consentPreferences));
+        
+        setUser(user);
+        return;
+      }
+      
+      // Real Google OAuth flow
       const request = new AuthSession.AuthRequest({
         clientId: googleAuthConfig.clientId,
         scopes: googleAuthConfig.scopes,
@@ -252,7 +287,7 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
       });
 
       const result = await request.promptAsync({
-        authorizationEndpoint: 'https://accounts.google.com/oauth/authorize',
+        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
       });
 
       if (result.type === 'success' && result.params.code) {
@@ -304,8 +339,10 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
         }
       } else if (result.type === 'error') {
         throw new Error(result.params?.error_description || 'Google authentication failed');
-      } else {
+      } else if (result.type === 'cancel') {
         throw new Error('Google authentication was cancelled');
+      } else {
+        throw new Error('Google authentication failed');
       }
     } catch (error) {
       console.error('Google sign in failed:', error);

@@ -71,7 +71,7 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Try GET request with query parameters instead of POST
+      // Use a simpler approach - try the basic hotels endpoint first
       const queryParams = new URLSearchParams({
         checkin: input.checkin,
         checkout: input.checkout,
@@ -83,7 +83,8 @@ export const searchHotelsProcedure = publicProcedure
         rooms: input.rooms.toString()
       });
       
-      const searchUrl = `https://api.liteapi.travel/v3.0/hotels/rates?${queryParams.toString()}`;
+      // Try the simpler hotels endpoint first
+      const searchUrl = `https://api.liteapi.travel/v3.0/hotels?${queryParams.toString()}`;
       
       console.log('Request URL:', searchUrl);
       console.log('Query parameters:', Object.fromEntries(queryParams));
@@ -185,25 +186,92 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Handle response with better streaming support
+      // Handle response with better error handling
       let responseText: string;
       try {
-        responseText = await response.text();
+        // Check if response body is readable
+        if (!response.body) {
+          console.error('Response body is null or undefined');
+          return {
+            success: false,
+            message: 'API response body is empty',
+            data: null,
+            debug: {
+              responseStatus: response.status,
+              hasBody: !!response.body,
+              bodyLocked: response.bodyUsed
+            }
+          };
+        }
+
+        // Try to read response as text with timeout
+        const textPromise = response.text();
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Response reading timeout')), 15000);
+        });
+        
+        responseText = await Promise.race([textPromise, timeoutPromise]);
+        
       } catch (textError) {
         console.error('Error reading response text:', textError);
+        
+        // Return fallback data instead of failing completely
+        const fallbackHotels = [
+          {
+            id: 'fallback_read_error_1',
+            name: `Sample Hotel in ${getCityNameFromCode(input.cityCode)}`,
+            location: `${getCityNameFromCode(input.cityCode)}, Sample Location`,
+            rating: 4.2,
+            reviewCount: 156,
+            price: 120,
+            originalPrice: 150,
+            imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop&q=80',
+            amenities: ['wifi', 'parking', 'pool'],
+            type: 'hotel' as const,
+            distance: '1.2 km from center',
+            isFavorite: false,
+            isPopular: true,
+            hasFreeCancellation: true,
+            currency: input.currency
+          }
+        ];
+        
         return {
           success: false,
-          message: 'Failed to read API response',
-          data: null,
-          debug: {
-            textError: textError instanceof Error ? textError.message : String(textError),
-            responseStatus: response.status
+          message: `Failed to read API response: ${textError instanceof Error ? textError.message : 'Unknown error'}. Using sample data.`,
+          data: {
+            hotels: fallbackHotels,
+            totalCount: fallbackHotels.length,
+            searchParams: {
+              ...input,
+              occupancies: occupancies
+            },
+            timestamp: new Date().toISOString(),
+            fallback: true,
+            debug: {
+              textError: textError instanceof Error ? textError.message : String(textError),
+              responseStatus: response.status
+            }
           }
         };
       }
       
-      console.log('Raw response length:', responseText.length);
-      console.log('Raw response preview:', responseText.substring(0, 500));
+      console.log('Raw response length:', responseText?.length || 0);
+      console.log('Raw response preview:', responseText?.substring(0, 500) || 'No response text');
+      
+      // Additional validation
+      if (typeof responseText !== 'string') {
+        console.error('Response is not a string:', typeof responseText);
+        return {
+          success: false,
+          message: 'API response is not valid text',
+          data: null,
+          debug: {
+            responseType: typeof responseText,
+            responseValue: String(responseText).substring(0, 100)
+          }
+        };
+      }
       
       if (!response.ok) {
         console.error('HTTP Error:', response.status, response.statusText);

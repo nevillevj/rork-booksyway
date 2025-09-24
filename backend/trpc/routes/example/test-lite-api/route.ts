@@ -20,8 +20,8 @@ export const testLiteApiProcedure = publicProcedure
       // Try multiple endpoints to find one that works
       const testEndpoints = [
         'https://api.liteapi.travel/v3.0/data/countries',
-        'https://api.liteapi.travel/v3.0/data/cities',
-        'https://api.liteapi.travel/v3.0/data/currencies'
+        'https://api.liteapi.travel/v2.0/data/countries',
+        'https://api.liteapi.travel/v1.0/data/countries'
       ];
       
       let testUrl = testEndpoints[0];

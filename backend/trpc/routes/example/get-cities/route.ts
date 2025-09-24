@@ -36,7 +36,7 @@ export const getCitiesProcedure = publicProcedure
         method: 'GET',
         headers: {
           'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
+          'Accept': 'application/json'
         }
       });
 

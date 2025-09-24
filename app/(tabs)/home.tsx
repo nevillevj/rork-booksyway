@@ -251,12 +251,18 @@ function NetworkDiagnostics() {
       const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL || 'http://localhost:8081';
       console.log('Checking backend health at:', baseUrl);
       
-      const response = await fetch(`${baseUrl}/api`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`${baseUrl}/api/`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         setBackendStatus('online');

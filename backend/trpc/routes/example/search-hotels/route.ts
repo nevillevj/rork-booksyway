@@ -1,6 +1,5 @@
 import { publicProcedure } from "@/backend/trpc/create-context";
 import { z } from "zod";
-import crypto from 'crypto';
 
 const searchHotelsSchema = z.object({
   cityCode: z.string().min(1),
@@ -13,24 +12,6 @@ const searchHotelsSchema = z.object({
   guestNationality: z.string().default('US'),
   limit: z.number().min(1).max(100).default(20)
 });
-
-// Helper function to create LiteAPI authorization signature
-function createLiteApiAuth(publicKey: string, privateKey: string) {
-  if (!publicKey?.trim() || !privateKey?.trim()) {
-    throw new Error('Invalid API keys provided');
-  }
-  
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const signature = crypto
-    .createHmac('sha512', privateKey.trim())
-    .update(publicKey.trim() + privateKey.trim() + timestamp)
-    .digest('hex');
-  
-  return {
-    authorization: `PublicKey=${publicKey.trim()},Signature=${signature},Timestamp=${timestamp}`,
-    timestamp
-  };
-}
 
 
 
@@ -82,46 +63,12 @@ export const searchHotelsProcedure = publicProcedure
       console.log('Request URL:', searchUrl);
       console.log('Request Body:', JSON.stringify(requestBody, null, 2));
       
-      // Try different authentication methods for sandbox
-      let headers: Record<string, string>;
-      
-      if (apiKey.startsWith('sand_')) {
-        // For sandbox keys, try simple API key authentication first
-        console.log('Using simple API key authentication for sandbox');
-        headers = {
-          'X-API-Key': apiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        };
-      } else {
-        // For production keys, use signature authentication
-        let publicKey: string;
-        let privateKey: string;
-        
-        if (apiKey.includes(':')) {
-          // Format: public_key:private_key
-          const [pub, priv] = apiKey.split(':');
-          publicKey = pub;
-          privateKey = priv;
-        } else {
-          // Single key format
-          publicKey = apiKey;
-          privateKey = apiKey;
-        }
-        
-        console.log('Public Key:', publicKey);
-        console.log('Private Key (first 10 chars):', privateKey.substring(0, 10) + '...');
-        
-        // Create secure authorization
-        const auth = createLiteApiAuth(publicKey, privateKey);
-        console.log('Authorization header created');
-        
-        headers = {
-          'Authorization': auth.authorization,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        };
-      }
+      // LiteAPI uses simple X-API-Key header authentication
+      const headers = {
+        'X-API-Key': apiKey,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
       
       const response = await fetch(searchUrl, {
         method: 'POST',

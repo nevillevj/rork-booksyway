@@ -17,19 +17,65 @@ export const testLiteApiProcedure = publicProcedure
       console.log('API Key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
 
-      // First try a simple GET request to test connectivity and authentication
-      const testUrl = 'https://api.liteapi.travel/v3.0/data/countries';
+      // Try multiple endpoints to find one that works
+      const testEndpoints = [
+        'https://api.liteapi.travel/v3.0/data/countries',
+        'https://api.liteapi.travel/v3.0/data/cities',
+        'https://api.liteapi.travel/v3.0/data/currencies'
+      ];
       
-      console.log('Test request URL:', testUrl);
-      console.log('Using GET request to test basic connectivity');
+      let testUrl = testEndpoints[0];
       
-      const response = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': apiKey,
-          'Accept': 'application/json'
+      console.log('Testing multiple endpoints:', testEndpoints);
+      
+      let response: Response | null = null;
+      let workingEndpoint = '';
+      
+      // Try each endpoint until one works
+      for (const endpoint of testEndpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          
+          const testResponse = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'X-API-Key': apiKey,
+              'Accept': 'application/json',
+              'User-Agent': 'BookingApp/1.0'
+            },
+            signal: AbortSignal.timeout(10000) // 10 second timeout per endpoint
+          });
+          
+          console.log(`Response from ${endpoint}: ${testResponse.status}`);
+          
+          if (testResponse.ok) {
+            response = testResponse;
+            workingEndpoint = endpoint;
+            testUrl = endpoint;
+            break;
+          } else {
+            console.log(`Endpoint ${endpoint} returned ${testResponse.status}: ${testResponse.statusText}`);
+            const errorText = await testResponse.text();
+            console.log(`Error response: ${errorText.substring(0, 200)}`);
+          }
+        } catch (endpointError) {
+          console.log(`Endpoint ${endpoint} failed:`, endpointError instanceof Error ? endpointError.message : String(endpointError));
         }
-      });
+      }
+      
+      if (!response) {
+        return {
+          success: false,
+          message: 'All test endpoints failed',
+          data: {
+            testedEndpoints: testEndpoints,
+            apiKeyPresent: !!apiKey,
+            apiKeyPrefix: apiKey.substring(0, 10) + '...'
+          }
+        };
+      }
+      
+      console.log(`Successfully connected to: ${workingEndpoint}`);
       
       console.log('Test response status:', response.status);
       console.log('Test response headers:', Object.fromEntries(response.headers.entries()));
@@ -118,14 +164,15 @@ export const testLiteApiProcedure = publicProcedure
       
       return {
         success: true,
-        message: `LiteAPI connection successful! Test endpoint responded with data.`,
+        message: `LiteAPI connection successful! Connected to: ${workingEndpoint}`,
         data: {
           status: response.status,
-          hotelsFound: hotelsCount,
+          workingEndpoint: workingEndpoint,
+          dataCount: hotelsCount,
           responseStructure: Object.keys(data),
           apiKeyPresent: !!apiKey,
-          endpoint: testUrl,
-          testRequestUrl: testUrl,
+          apiKeyPrefix: apiKey.substring(0, 10) + '...',
+          testedEndpoints: testEndpoints,
           sampleResponse: JSON.stringify(data, null, 2).substring(0, 1000)
         }
       };

@@ -71,42 +71,127 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies:', occupancies);
 
-      // Use a simpler approach - try the basic hotels endpoint first
-      const queryParams = new URLSearchParams({
-        checkin: input.checkin,
-        checkout: input.checkout,
-        currency: input.currency,
-        guestNationality: input.guestNationality,
-        cityName: getCityNameFromCode(input.cityCode),
-        adults: input.adults.toString(),
-        children: input.children.toString(),
-        rooms: input.rooms.toString()
-      });
-      
-      // Try the simpler hotels endpoint first
-      const searchUrl = `https://api.liteapi.travel/v3.0/hotels?${queryParams.toString()}`;
-      
-      console.log('Request URL:', searchUrl);
-      console.log('Query parameters:', Object.fromEntries(queryParams));
-      
-      // Add timeout and better error handling
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      let response: Response;
-      try {
-        response = await fetch(searchUrl, {
+      // Try multiple LiteAPI endpoints and request formats
+      const searchEndpoints = [
+        {
+          url: 'https://api.liteapi.travel/v3.0/hotels/search',
+          method: 'POST',
+          body: {
+            checkin: input.checkin,
+            checkout: input.checkout,
+            currency: input.currency,
+            guestNationality: input.guestNationality,
+            occupancies: occupancies,
+            cityName: getCityNameFromCode(input.cityCode),
+            limit: input.limit
+          }
+        },
+        {
+          url: 'https://api.liteapi.travel/v3.0/hotels',
           method: 'GET',
-          headers: {
-            'X-API-Key': apiKey,
-            'Accept': 'application/json',
-            'User-Agent': 'BookingApp/1.0'
-          },
-          signal: controller.signal
-        });
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        console.error('Fetch error:', fetchError);
+          params: {
+            checkin: input.checkin,
+            checkout: input.checkout,
+            currency: input.currency,
+            guestNationality: input.guestNationality,
+            cityName: getCityNameFromCode(input.cityCode),
+            adults: input.adults.toString(),
+            children: input.children.toString(),
+            rooms: input.rooms.toString(),
+            limit: input.limit.toString()
+          }
+        },
+        {
+          url: 'https://api.liteapi.travel/v2.0/hotels',
+          method: 'GET',
+          params: {
+            checkin: input.checkin,
+            checkout: input.checkout,
+            currency: input.currency,
+            guestNationality: input.guestNationality,
+            cityName: getCityNameFromCode(input.cityCode),
+            adults: input.adults.toString(),
+            children: input.children.toString(),
+            rooms: input.rooms.toString()
+          }
+        }
+      ];
+      
+      console.log('Trying multiple search endpoints:', searchEndpoints.map(e => `${e.method} ${e.url}`));
+      
+      let response: Response | null = null;
+      let workingEndpoint = '';
+      
+      // Try each endpoint until one works
+      for (const endpoint of searchEndpoints) {
+        try {
+          console.log(`\n=== Trying ${endpoint.method} ${endpoint.url} ===`);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout per endpoint
+          
+          let fetchOptions: RequestInit;
+          let fullUrl = endpoint.url;
+          
+          if (endpoint.method === 'GET' && endpoint.params) {
+            // Filter out undefined values and ensure all values are strings
+            const cleanParams: Record<string, string> = {};
+            Object.entries(endpoint.params).forEach(([key, value]) => {
+              if (value !== undefined) {
+                cleanParams[key] = value;
+              }
+            });
+            const queryParams = new URLSearchParams(cleanParams);
+            fullUrl = `${endpoint.url}?${queryParams.toString()}`;
+            console.log('GET URL:', fullUrl);
+            
+            fetchOptions = {
+              method: 'GET',
+              headers: {
+                'X-API-Key': apiKey,
+                'Accept': 'application/json',
+                'User-Agent': 'BookingApp/1.0'
+              },
+              signal: controller.signal
+            };
+            // GET request configured
+          } else {
+            console.log('POST body:', JSON.stringify(endpoint.body, null, 2));
+            
+            fetchOptions = {
+              method: 'POST',
+              headers: {
+                'X-API-Key': apiKey,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'User-Agent': 'BookingApp/1.0'
+              },
+              body: JSON.stringify(endpoint.body),
+              signal: controller.signal
+            };
+            // POST request configured
+          }
+          
+          const testResponse = await fetch(fullUrl, fetchOptions);
+          clearTimeout(timeoutId);
+          
+          console.log(`Response from ${endpoint.url}: ${testResponse.status} ${testResponse.statusText}`);
+          console.log('Response headers:', Object.fromEntries(testResponse.headers.entries()));
+          
+          // Check if we got a response (even if not ok)
+          if (testResponse.status !== 0) {
+            response = testResponse;
+            workingEndpoint = fullUrl;
+            break;
+          }
+        } catch (endpointError) {
+          console.log(`Endpoint ${endpoint.url} failed:`, endpointError instanceof Error ? endpointError.message : String(endpointError));
+        }
+      }
+      
+      if (!response) {
+        console.error('All search endpoints failed');
+        console.error('No working endpoint found');
         
         // Return fallback data for network errors
         const fallbackHotels = [
@@ -163,7 +248,7 @@ export const searchHotelsProcedure = publicProcedure
         
         return {
           success: false,
-          message: `Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown network error'}. Using sample data.`,
+          message: 'All API endpoints failed. Using sample data.',
           data: {
             hotels: fallbackHotels,
             totalCount: fallbackHotels.length,
@@ -174,14 +259,14 @@ export const searchHotelsProcedure = publicProcedure
             timestamp: new Date().toISOString(),
             fallback: true,
             debug: {
-              networkError: fetchError instanceof Error ? fetchError.message : String(fetchError),
-              requestUrl: searchUrl
+              networkError: 'All endpoints failed',
+              testedEndpoints: searchEndpoints.map(e => `${e.method} ${e.url}`)
             }
           }
         };
       }
       
-      clearTimeout(timeoutId);
+      // Response received successfully
       
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
@@ -285,7 +370,7 @@ export const searchHotelsProcedure = publicProcedure
             httpStatus: response.status,
             httpStatusText: response.statusText,
             responseBody: responseText.substring(0, 1000),
-            requestUrl: searchUrl
+            workingEndpoint: workingEndpoint
           }
         };
       }
@@ -298,7 +383,7 @@ export const searchHotelsProcedure = publicProcedure
           data: null,
           debug: {
             responseLength: responseText.length,
-            requestUrl: searchUrl
+            workingEndpoint: workingEndpoint
           }
         };
       }
@@ -321,7 +406,7 @@ export const searchHotelsProcedure = publicProcedure
               lastChars: trimmedResponse.slice(-100),
               startsWithBrace: trimmedResponse.startsWith('{'),
               endsWithBrace: trimmedResponse.endsWith('}'),
-              requestUrl: searchUrl
+              workingEndpoint: workingEndpoint
             }
           };
         }
@@ -335,7 +420,7 @@ export const searchHotelsProcedure = publicProcedure
             debug: {
               responseText: trimmedResponse.substring(0, 1000),
               responseLength: trimmedResponse.length,
-              requestUrl: searchUrl
+              workingEndpoint: workingEndpoint
             }
           };
         }
@@ -357,7 +442,7 @@ export const searchHotelsProcedure = publicProcedure
             responseText: responseText.substring(0, 1000),
             responseLength: responseText.length,
             lastChars: responseText.slice(-50),
-            requestUrl: searchUrl
+            workingEndpoint: workingEndpoint
           }
         };
       }

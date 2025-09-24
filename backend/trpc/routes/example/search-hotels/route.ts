@@ -46,31 +46,29 @@ export const searchHotelsProcedure = publicProcedure
 
       console.log('Generated occupancies (for future use):', occupancies);
 
-      // Use the LiteAPI data/hotels endpoint which is documented and working
-      const searchUrl = 'https://api.liteapi.travel/v3.0/data/hotels';
-      
-      // Build request body for data/hotels endpoint
-      const requestBody = {
+      // Use the LiteAPI data/hotels endpoint with GET method like the working test
+      // Build query parameters for GET request
+      const queryParams = new URLSearchParams({
         countryCode: 'US', // Default to US for now
         cityName: input.cityCode, // Use cityCode as cityName for now
-        offset: 0,
-        limit: input.limit
-      };
+        offset: '0',
+        limit: input.limit.toString()
+      });
+      
+      const searchUrl = `https://api.liteapi.travel/v3.0/data/hotels?${queryParams.toString()}`;
       
       console.log('Request URL:', searchUrl);
-      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+      console.log('Using GET request like the working test endpoint');
       
       // LiteAPI uses simple X-API-Key header authentication
       const headers = {
         'X-API-Key': apiKey,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       };
       
       const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
+        method: 'GET',
+        headers
       });
 
       console.log('Response status:', response.status);
